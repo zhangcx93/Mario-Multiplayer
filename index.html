@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Mario!</title>
+</head>
+<body>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    background-color: black;
+    overflow: hidden;
+    text-align: center;
+  }
+
+  #wrapper {
+    position: relative;
+    margin: 10px auto;
+  }
+
+  canvas {
+    position: absolute;
+    left: 0;
+    top: 0;
+    image-rendering: crisp-edges;
+  }
+
+</style>
+<div id="wrapper">
+  <canvas id="map"></canvas>
+  <canvas id="player"></canvas>
+</div>
+
+</body>
+<script src="lib.js"></script>
+</html>

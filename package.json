@@ -1,0 +1,20 @@
+{
+  "name": "Mario-Multiplayer",
+  "version": "0.0.1",
+  "devDependencies": {
+    "grunt": "~0.4.5",
+    "grunt-contrib-uglify": "~0.6.0",
+    "grunt-contrib-concat": "~0.5.0",
+    "grunt-contrib-watch": "~0.6.1"
+  },
+  "homepage": "http://geetest.com/",
+  "author": {
+    "name": "zhangcx93",
+    "email": "zhangcx93@gmail.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zhangcx93/Mario-Multiplayer.git"
+  },
+  "description": "Multiplayer Mario based on canvas and node.js"
+}
