@@ -9,6 +9,8 @@ var Game = {
   pause: false
 };
 
+var PlayerList = [];
+
 
 var lastTimeStamp = 0, frames = 60;
 
@@ -21,3 +23,5 @@ var bitmapsMap = {
 
 
 var bitmap = {};
+
+var socket;

@@ -2,21 +2,17 @@ var drawBlock = function (img, x, y) {
   mapCtx.drawImage(img, 0, 0, img.width, img.height, x * unit, y * unit, unit, unit)
 };
 
-var drawPeople = function (img, x, y, w, h, name) {
+var drawPeople = function (ctx, img, x, y, w, h, name) {
   if (Game.showName) {
-    playerCtx.textAlign = "center";
-    playerCtx.font = "20px Georgia";
-    playerCtx.fillText(name, (x + w / 2) * unit, (y - 0.2) * unit);
+    ctx.textAlign = "center";
+    ctx.font = "20px Georgia";
+    ctx.fillText(name, (x + w / 2) * unit, (y - 0.2) * unit);
   }
-  playerCtx.drawImage(img, 0, 0, img.width, img.height, parseInt(x * unit), parseInt(y * unit), parseInt(unit * w), parseInt(unit * h))
+  ctx.drawImage(img, 0, 0, img.width, img.height, parseInt(x * unit), parseInt(y * unit), parseInt(unit * w), parseInt(unit * h))
 };
 
 var clearMap = function () {
   mapCtx.clearRect(0, 0, mapCanvas.width, mapCanvas.height);
-};
-
-var clearPlayer = function () {
-  playerCtx.clearRect(0, 0, playerCanvas.width, playerCanvas.height);
 };
 
 var getObjectSize = function (obj) {
@@ -27,14 +23,15 @@ var getObjectSize = function (obj) {
   return size;
 };
 
+var bitMapLoaded = 0;
 
-var loadBitmap = function (callback) {
-  var length = getObjectSize(bitmapsMap), loaded = 0;
+loadBitmap = function (callback) {
+  var length = getObjectSize(bitmapsMap);
   var onload = function () {
-    if (loaded == length - 1) {
+    if (bitMapLoaded == length - 1) {
       return callback();
     }
-    loaded++;
+    bitMapLoaded++;
   };
   for (var i in bitmapsMap) {
     if (bitmapsMap.hasOwnProperty(i)) {

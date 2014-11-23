@@ -1,11 +1,11 @@
-/*! Mario-Multiplayer - v0.0.1 - 2014-11-23
+/*! Mario-Multiplayer - v0.0.1 - 2014-11-24
 * http://geetest.com/
 * Copyright (c) 2014 zhangcx93; Licensed  */
 var mapCanvas = document.getElementById('map');
 mapCtx = mapCanvas.getContext('2d');
-
-var playerCanvas = document.getElementById('player');
-playerCtx = playerCanvas.getContext('2d');
+//
+//var playerCanvas = document.getElementById('player');
+//playerCtx = playerCanvas.getContext('2d');
 
 var wrapperDom = document.getElementById('wrapper');
 
@@ -21,15 +21,14 @@ var unit = Math.round(Math.min(
 
 var mapPixel = [unit * mapSize[0], unit * mapSize[1]];
 
-mapCanvas.width = playerCanvas.width =  mapPixel[0];
-mapCanvas.height = playerCanvas.height = wrapperDom.style.height = mapPixel[1];
+mapCanvas.width = mapPixel[0];
+mapCanvas.height = mapPixel[1];
 
 wrapperDom.style.width = mapPixel[0] + 'px';
 wrapperDom.style.height = mapPixel[1] + 'px';
 
 mapCtx.fillStyle = "white";
 mapCtx.imageSmoothingEnabled = false;
-playerCtx.imageSmoothingEnabled = false;
 
 mapCtx.fillRect(0, 0, mapPixel[0], mapPixel[1]);
 var Env = {
@@ -42,6 +41,8 @@ var Game = {
   showName: true,
   pause: false
 };
+
+var PlayerList = [];
 
 
 var lastTimeStamp = 0, frames = 60;
@@ -56,25 +57,23 @@ var bitmapsMap = {
 
 var bitmap = {};
 
+var socket;
+
 var drawBlock = function (img, x, y) {
   mapCtx.drawImage(img, 0, 0, img.width, img.height, x * unit, y * unit, unit, unit)
 };
 
-var drawPeople = function (img, x, y, w, h, name) {
+var drawPeople = function (ctx, img, x, y, w, h, name) {
   if (Game.showName) {
-    playerCtx.textAlign = "center";
-    playerCtx.font = "20px Georgia";
-    playerCtx.fillText(name, (x + w / 2) * unit, (y - 0.2) * unit);
+    ctx.textAlign = "center";
+    ctx.font = "20px Georgia";
+    ctx.fillText(name, (x + w / 2) * unit, (y - 0.2) * unit);
   }
-  playerCtx.drawImage(img, 0, 0, img.width, img.height, parseInt(x * unit), parseInt(y * unit), parseInt(unit * w), parseInt(unit * h))
+  ctx.drawImage(img, 0, 0, img.width, img.height, parseInt(x * unit), parseInt(y * unit), parseInt(unit * w), parseInt(unit * h))
 };
 
 var clearMap = function () {
   mapCtx.clearRect(0, 0, mapCanvas.width, mapCanvas.height);
-};
-
-var clearPlayer = function () {
-  playerCtx.clearRect(0, 0, playerCanvas.width, playerCanvas.height);
 };
 
 var getObjectSize = function (obj) {
@@ -85,14 +84,15 @@ var getObjectSize = function (obj) {
   return size;
 };
 
+var bitMapLoaded = 0;
 
-var loadBitmap = function (callback) {
-  var length = getObjectSize(bitmapsMap), loaded = 0;
+loadBitmap = function (callback) {
+  var length = getObjectSize(bitmapsMap);
   var onload = function () {
-    if (loaded == length - 1) {
+    if (bitMapLoaded == length - 1) {
       return callback();
     }
-    loaded++;
+    bitMapLoaded++;
   };
   for (var i in bitmapsMap) {
     if (bitmapsMap.hasOwnProperty(i)) {
@@ -205,19 +205,95 @@ var Player = function (e) {
   this.innerF = [0, Env.gravity];
   this.outterF = [0, 0];
   this.name = e.name;
+  this.team = e.team == 0 ? 0: (e.team || -1);//-1 means undefined, 0 means left team, 1 means right team
   this.size = e.size || [16 / 21, 1];
-  this.position = [1, 2];
+  this.position = e.position || [1, 2];
   this.v = [0, 0];
   this.map = e.map;
   this.skin = e.skin || getBitmap('mario');
   this.speed = e.speed || 7;
   this.jumpSpeed = e.jumpSpeed || 17;
   this.moving = 0;
+  this.id = e.id;
+  //this.request();
+
+  return this;
 };
 
 Player.prototype = {
+  request: function () {
+    //add canvas to content;
+    socket.emit('addPlayer', {
+      name: this.name,
+      team: this.team
+    });
+  },
+  initDom: function () {
+    this.playerCanvas = document.createElement('canvas');
+    this.playerCtx = this.playerCanvas.getContext('2d');
+    this.playerCanvas.width = mapPixel[0];
+    this.playerCanvas.height = mapPixel[1];
+    this.playerCtx.imageSmoothingEnabled = false;
+    wrapperDom.appendChild(this.playerCanvas);
+    return this;
+  },
+  render: function () {
+    this.notMoving = false;
+    var reflowAnimate;
+
+    var that = this;
+
+    var reflow = function (timestamp) {
+      that.refresh();
+      that.clearPlayer();
+      drawPeople(that.playerCtx, that.skin, that.position[0], that.position[1], that.size[0], that.size[1], that.name);
+      if (that.v[0] == 0 && that.v[1] == 0 && !that.onEdge()[1]) {
+        console.log(that, 'not moving');
+        that.notMoving = true;
+        return;
+      }
+      reflowAnimate = requestAnimationFrame(reflow);
+    };
+    reflowAnimate = requestAnimationFrame(reflow);
+  },
+  refresh: function () {
+    var tempPlayer = this;
+
+    tempPlayer.move();
+
+    //console.log(frames);
+    if (tempPlayer.onEdge()[1]) {
+      //on edge Y:
+      tempPlayer.position[1] = parseInt(tempPlayer.position[1]) + (tempPlayer.v[1] > 0 ? tempPlayer.size[1] : 0);
+      tempPlayer.v[1] = 0;
+    }
+    else {
+      tempPlayer.a[1] = tempPlayer.innerF[1] + tempPlayer.outterF[1];
+      tempPlayer.v[1] += tempPlayer.a[1] / frames;
+      if (tempPlayer.v[1] >= Env.maxSpeed) {
+        tempPlayer.v[1] = Env.maxSpeed;
+      }
+      tempPlayer.position[1] += tempPlayer.v[1] / frames;
+    }
+
+    if (tempPlayer.onEdge()[0]) {
+      //on edge X:
+      tempPlayer.position[0] = parseInt(tempPlayer.position[0]) + (tempPlayer.v[0] > 0 ? 1 - tempPlayer.size[0] : 0);
+      tempPlayer.v[0] = 0;
+    }
+    else {
+      tempPlayer.position[0] += tempPlayer.v[0] / frames;
+    }
+    //console.log(tempPlayer.v);
+  },
+  clearPlayer: function () {
+    this.playerCtx.clearRect(0, 0, this.playerCanvas.width, this.playerCanvas.height);
+  },
   changeMoveStatus: function (right) {
     this.moving = right;
+    if(this.notMoving) {
+      this.render();
+    }
   },
   move: function () {
     if (this.moving != 0) {
@@ -277,6 +353,128 @@ Player.prototype = {
     return result;
   }
 };
+var bindKey = function() {
+
+  var keyStatus = {
+    "right": false,
+    'left': false,
+    'space': false
+  };
+
+  var isLastUp = function () {
+    return !keyStatus.right && !keyStatus.left
+  };
+
+  window.addEventListener('keydown', function (e) {
+    if (e.keyCode == 39) {
+      //move right
+      socket.emit('playerMove', {
+        direction: "r",
+        id: PlayerList[0].id
+      });
+      //PlayerList[0].changeMoveStatus(1);
+      keyStatus.right = true;
+    }
+    if (e.keyCode == 37) {
+      socket.emit('playerMove', {
+        direction: "l",
+        id: PlayerList[0].id
+      });
+      //PlayerList[0].changeMoveStatus(-1);
+      keyStatus.left = true;
+
+    }
+    if (e.keyCode == 32) {
+      socket.emit('playerMove', {
+        direction: "u",
+        id: PlayerList[0].id
+      });
+      keyStatus.space = true;
+      //PlayerList[0].jump();
+    }
+  });
+  window.addEventListener('keyup', function (e) {
+    if (e.keyCode == 39) {
+      keyStatus.right = false;
+    }
+    if (e.keyCode == 37) {
+      keyStatus.left = false;
+    }
+    if (isLastUp()) {
+      //console.log('Last Up', PlayerList);
+      socket.emit('playerMove', {
+        direction: "s",
+        id: PlayerList[0].id
+      });
+      //PlayerList[0].stop();
+      //PlayerList[0].changeMoveStatus(0);
+    }
+  });
+};
+var connect = function (map) {
+  socket = io.connect("/");
+
+  socket.on("connect", function () {
+    var tempLayer = new Player({
+      name: parseInt(Math.random()*20),
+      map: map
+    });
+
+    tempLayer.request();
+  });
+
+  socket.on("getPlayer", function (data) {
+    console.log("Player Get: ", data);
+    data.me.map = map;
+    PlayerList[0] = new Player(data.me);
+    map.addPeople(PlayerList[0]);
+    PlayerList[0].initDom().render();
+    var tempPlayer;
+    for (var i = 0; i < data.other.length; i++) {
+      tempPlayer = new Player(data.other[i]);
+      tempPlayer.map = map;
+      PlayerList.push(tempPlayer);
+      map.addPeople(tempPlayer);
+      tempPlayer.initDom().render();
+    }
+    bindKey();
+  });
+
+  socket.on("newPlayer", function (data) {
+    console.log("other new player added: ", data);
+    data.map = map;
+    var tempPlayer = new Player(data);
+    PlayerList.push(tempPlayer);
+    map.addPeople(tempPlayer);
+    tempPlayer.initDom().render();
+  });
+
+  socket.on("playerMove", function(data) {
+    console.log("Player Move received: ", data);
+    for(var player in PlayerList) {
+      if(PlayerList.hasOwnProperty(player) && PlayerList[player].id == data.id) {
+        var tempPlayer = PlayerList[player];
+        if(data.direction == "l") {
+          tempPlayer.changeMoveStatus(-1);
+        }
+        else if(data.direction == "r") {
+          tempPlayer.changeMoveStatus(1);
+        }
+        else if(data.direction == "s") {
+          tempPlayer.stop();
+          tempPlayer.changeMoveStatus(0);
+        }
+        else if(data.direction == "r") {
+          tempPlayer.changeMoveStatus(1);
+        }
+        else if(data.direction == 'u') {
+          tempPlayer.jump();
+        }
+      }
+    }
+  });
+};
+
 
 //main start:
 
@@ -345,59 +543,6 @@ var init = function () {
   map.addBlock(ladder);
   map.addBlock(edge);
 
-  var john = new Player({
-    name: "John",
-    map: map
-  });
-
-  var jack = new Player({
-    name: "Jack",
-    map: map,
-    skin: getBitmap('mario-green')
-  });
-
-  map.addPeople(john);
-  map.addPeople(jack);
-
-
-  var keyStatus = {
-    "right": false,
-    'left': false,
-    'space': false
-  };
-
-  var isLastUp = function () {
-    return !keyStatus.right && !keyStatus.left
-  };
-
-  window.addEventListener('keydown', function (e) {
-    if (e.keyCode == 39) {
-      //move right
-      john.changeMoveStatus(1);
-      keyStatus.right = true;
-    }
-    if (e.keyCode == 37) {
-      john.changeMoveStatus(-1);
-      keyStatus.left = true;
-
-    }
-    if (e.keyCode == 32) {
-      keyStatus.space = true;
-      john.jump();
-    }
-  });
-  window.addEventListener('keyup', function (e) {
-    if (e.keyCode == 39) {
-      keyStatus.right = false;
-    }
-    if (e.keyCode == 37) {
-      keyStatus.left = false;
-    }
-    if (isLastUp()) {
-      john.stop();
-      john.changeMoveStatus(0);
-    }
-  });
 
   var initMap = function() {
     map.paintBlock();
@@ -405,41 +550,50 @@ var init = function () {
 
   initMap();
 
-  var timer;
+  connect(map);
+  //
+  //var timer;
+  //
+  //var reflowAnimate, backgroundAnimate;
+  //
+  //var reflow = function (timestamp) {
+  //  //clearMap();
+  //
+  //  if(Game.pause) {
+  //    return;
+  //  }
+  //  clearTimeout(timer);
+  //  clearInterval(backgroundAnimate);
+  //
+  //  timer = setTimeout(function() {
+  //    Game.pause = true;
+  //    cancelAnimationFrame(reflowAnimate);
+  //    backgroundAnimate = setInterval(function() {
+  //      map.refresh();
+  //    }, parseInt(1000/frames));
+  //    requestAnimationFrame(function (tempStamp) {
+  //      Game.pause = false;
+  //      lastTimeStamp = tempStamp;
+  //      reflowAnimate = requestAnimationFrame(reflow);
+  //    });
+  //  }, 100);
+  //
+  //  map.refresh();
+  //  frames = parseInt(1000 / (timestamp - lastTimeStamp));
+  //  lastTimeStamp = timestamp;
+  //
+  //  clearPlayer();
+  //  map.showPeople();
+  //  reflowAnimate = requestAnimationFrame(reflow);
+  //};
+  //reflowAnimate = requestAnimationFrame(reflow);
 
-  var reflowAnimate, backgroundAnimate;
-
-  var reflow = function (timestamp) {
-    //clearMap();
-
-    if(Game.pause) {
-      return;
-    }
-    clearTimeout(timer);
-    clearInterval(backgroundAnimate);
-
-    timer = setTimeout(function() {
-      Game.pause = true;
-      cancelAnimationFrame(reflowAnimate);
-      backgroundAnimate = setInterval(function() {
-        map.refresh();
-      }, parseInt(1000/frames));
-      requestAnimationFrame(function (tempStamp) {
-        Game.pause = false;
-        lastTimeStamp = tempStamp;
-        reflowAnimate = requestAnimationFrame(reflow);
-      });
-    }, 100);
-
-    map.refresh();
+  var updateFrame = function(timestamp) {
     frames = parseInt(1000 / (timestamp - lastTimeStamp));
     lastTimeStamp = timestamp;
-
-    clearPlayer();
-    map.showPeople();
-    reflowAnimate = requestAnimationFrame(reflow);
+    requestAnimationFrame(updateFrame);
   };
-  reflowAnimate = requestAnimationFrame(reflow);
+  requestAnimationFrame(updateFrame);
 
 };
 

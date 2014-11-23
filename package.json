@@ -16,5 +16,9 @@
     "type": "git",
     "url": "https://github.com/zhangcx93/Mario-Multiplayer.git"
   },
-  "description": "Multiplayer Mario based on canvas and node.js"
+  "description": "Multiplayer Mario based on canvas and node.js",
+  "dependencies": {
+    "express": "^4.10.2",
+    "socket.io": "^1.2.1"
+  }
 }
