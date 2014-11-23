@@ -2,11 +2,6 @@
 //main start:
 
 var init = function () {
-  mapCtx.fillStyle = "white";
-  mapCtx.imageSmoothingEnabled = false;
-  playerCtx.imageSmoothingEnabled = false;
-  mapCtx.fillRect(0, 0, mapPixel[0], mapPixel[1]);
-
   var brick = new Material({
     bitmap: getBitmap("brick"),
     solid: true
@@ -76,7 +71,15 @@ var init = function () {
     map: map
   });
 
+  var jack = new Player({
+    name: "Jack",
+    map: map,
+    skin: getBitmap('mario-green')
+  });
+
   map.addPeople(john);
+  map.addPeople(jack);
+
 
   var keyStatus = {
     "right": false,
@@ -125,7 +128,7 @@ var init = function () {
 
   var timer;
 
-  var reflowAnimate;
+  var reflowAnimate, backgroundAnimate;
 
   var reflow = function (timestamp) {
     //clearMap();
@@ -134,10 +137,14 @@ var init = function () {
       return;
     }
     clearTimeout(timer);
+    clearInterval(backgroundAnimate);
 
     timer = setTimeout(function() {
       Game.pause = true;
       cancelAnimationFrame(reflowAnimate);
+      backgroundAnimate = setInterval(function() {
+        map.refresh();
+      }, parseInt(1000/frames));
       requestAnimationFrame(function (tempStamp) {
         Game.pause = false;
         lastTimeStamp = tempStamp;
@@ -145,7 +152,8 @@ var init = function () {
       });
     }, 100);
 
-    frames = 1000 / (timestamp - lastTimeStamp);
+    map.refresh();
+    frames = parseInt(1000 / (timestamp - lastTimeStamp));
     lastTimeStamp = timestamp;
 
     clearPlayer();
@@ -153,7 +161,6 @@ var init = function () {
     reflowAnimate = requestAnimationFrame(reflow);
   };
   reflowAnimate = requestAnimationFrame(reflow);
-
 
 };
 

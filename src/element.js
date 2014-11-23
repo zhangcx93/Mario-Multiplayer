@@ -23,3 +23,9 @@ mapCanvas.height = playerCanvas.height = wrapperDom.style.height = mapPixel[1];
 
 wrapperDom.style.width = mapPixel[0] + 'px';
 wrapperDom.style.height = mapPixel[1] + 'px';
+
+mapCtx.fillStyle = "white";
+mapCtx.imageSmoothingEnabled = false;
+playerCtx.imageSmoothingEnabled = false;
+
+mapCtx.fillRect(0, 0, mapPixel[0], mapPixel[1]);

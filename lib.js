@@ -26,13 +26,20 @@ mapCanvas.height = playerCanvas.height = wrapperDom.style.height = mapPixel[1];
 
 wrapperDom.style.width = mapPixel[0] + 'px';
 wrapperDom.style.height = mapPixel[1] + 'px';
+
+mapCtx.fillStyle = "white";
+mapCtx.imageSmoothingEnabled = false;
+playerCtx.imageSmoothingEnabled = false;
+
+mapCtx.fillRect(0, 0, mapPixel[0], mapPixel[1]);
 var Env = {
   gravity: 50,
-  maxSpeed: 8,
+  maxSpeed: 17,
   drag: 0.5
 };
 
 var Game = {
+  showName: true,
   pause: false
 };
 
@@ -42,26 +49,31 @@ var lastTimeStamp = 0, frames = 60;
 
 var bitmapsMap = {
   'brick': 'brick.png',
-  'mario': 'mario.png'
+  'mario': 'mario.png',
+  'mario-green': 'mario-green.png'
 };
 
 
 var bitmap = {};
 
-
 var drawBlock = function (img, x, y) {
   mapCtx.drawImage(img, 0, 0, img.width, img.height, x * unit, y * unit, unit, unit)
 };
 
-var drawPeople = function (img, x, y, w, h) {
-  playerCtx.drawImage(img, 0, 0, img.width, img.height, x * unit, y * unit, unit * w, unit * h)
+var drawPeople = function (img, x, y, w, h, name) {
+  if (Game.showName) {
+    playerCtx.textAlign = "center";
+    playerCtx.font = "20px Georgia";
+    playerCtx.fillText(name, (x + w / 2) * unit, (y - 0.2) * unit);
+  }
+  playerCtx.drawImage(img, 0, 0, img.width, img.height, parseInt(x * unit), parseInt(y * unit), parseInt(unit * w), parseInt(unit * h))
 };
 
 var clearMap = function () {
   mapCtx.clearRect(0, 0, mapCanvas.width, mapCanvas.height);
 };
 
-var clearPlayer = function() {
+var clearPlayer = function () {
   playerCtx.clearRect(0, 0, playerCanvas.width, playerCanvas.height);
 };
 
@@ -99,7 +111,6 @@ var getBitmap = function (name) {
     throw new Error("Can't find bitmap named: " + name);
   }
 };
-
 //class Material, define materials with bitmap, solid or not (or advanced feature)
 var Material = function (e) {
   this.bitmap = e.bitmap;
@@ -145,7 +156,7 @@ Map.prototype = {
   addPeople: function (people) {
     this.peoples.push(people);
   },
-  showPeople: function (timeStamp) {
+  refresh: function () {
     var peoples = this.peoples;
     var tempPlayer;
     for (var i = 0, l = peoples.length; i < l; i++) {
@@ -176,7 +187,15 @@ Map.prototype = {
         tempPlayer.position[0] += tempPlayer.v[0] / frames;
       }
 
-      drawPeople(tempPlayer.skin, tempPlayer.position[0], tempPlayer.position[1], tempPlayer.size[0], tempPlayer.size[1])
+    }
+  },
+  showPeople: function () {
+    var peoples = this.peoples;
+    var tempPlayer;
+    for (var i = 0, l = peoples.length; i < l; i++) {
+      tempPlayer = peoples[i];
+
+      drawPeople(tempPlayer.skin, tempPlayer.position[0], tempPlayer.position[1], tempPlayer.size[0], tempPlayer.size[1], tempPlayer.name)
     }
   }
 };
@@ -186,13 +205,13 @@ var Player = function (e) {
   this.innerF = [0, Env.gravity];
   this.outterF = [0, 0];
   this.name = e.name;
-  this.size = [16 / 21, 1];
+  this.size = e.size || [16 / 21, 1];
   this.position = [1, 2];
   this.v = [0, 0];
   this.map = e.map;
-  this.skin = getBitmap('mario');
-  this.speed = 7;
-  this.jumpSpeed = 17;
+  this.skin = e.skin || getBitmap('mario');
+  this.speed = e.speed || 7;
+  this.jumpSpeed = e.jumpSpeed || 17;
   this.moving = 0;
 };
 
@@ -262,11 +281,6 @@ Player.prototype = {
 //main start:
 
 var init = function () {
-  mapCtx.fillStyle = "white";
-  mapCtx.imageSmoothingEnabled = false;
-  playerCtx.imageSmoothingEnabled = false;
-  mapCtx.fillRect(0, 0, mapPixel[0], mapPixel[1]);
-
   var brick = new Material({
     bitmap: getBitmap("brick"),
     solid: true
@@ -336,7 +350,15 @@ var init = function () {
     map: map
   });
 
+  var jack = new Player({
+    name: "Jack",
+    map: map,
+    skin: getBitmap('mario-green')
+  });
+
   map.addPeople(john);
+  map.addPeople(jack);
+
 
   var keyStatus = {
     "right": false,
@@ -385,7 +407,7 @@ var init = function () {
 
   var timer;
 
-  var reflowAnimate;
+  var reflowAnimate, backgroundAnimate;
 
   var reflow = function (timestamp) {
     //clearMap();
@@ -394,10 +416,14 @@ var init = function () {
       return;
     }
     clearTimeout(timer);
+    clearInterval(backgroundAnimate);
 
     timer = setTimeout(function() {
       Game.pause = true;
       cancelAnimationFrame(reflowAnimate);
+      backgroundAnimate = setInterval(function() {
+        map.refresh();
+      }, parseInt(1000/frames));
       requestAnimationFrame(function (tempStamp) {
         Game.pause = false;
         lastTimeStamp = tempStamp;
@@ -405,7 +431,8 @@ var init = function () {
       });
     }, 100);
 
-    frames = 1000 / (timestamp - lastTimeStamp);
+    map.refresh();
+    frames = parseInt(1000 / (timestamp - lastTimeStamp));
     lastTimeStamp = timestamp;
 
     clearPlayer();
@@ -413,7 +440,6 @@ var init = function () {
     reflowAnimate = requestAnimationFrame(reflow);
   };
   reflowAnimate = requestAnimationFrame(reflow);
-
 
 };
 

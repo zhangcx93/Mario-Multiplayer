@@ -1,4 +1,3 @@
-
 //class Material, define materials with bitmap, solid or not (or advanced feature)
 var Material = function (e) {
   this.bitmap = e.bitmap;
@@ -44,7 +43,7 @@ Map.prototype = {
   addPeople: function (people) {
     this.peoples.push(people);
   },
-  showPeople: function (timeStamp) {
+  refresh: function () {
     var peoples = this.peoples;
     var tempPlayer;
     for (var i = 0, l = peoples.length; i < l; i++) {
@@ -75,7 +74,15 @@ Map.prototype = {
         tempPlayer.position[0] += tempPlayer.v[0] / frames;
       }
 
-      drawPeople(tempPlayer.skin, tempPlayer.position[0], tempPlayer.position[1], tempPlayer.size[0], tempPlayer.size[1])
+    }
+  },
+  showPeople: function () {
+    var peoples = this.peoples;
+    var tempPlayer;
+    for (var i = 0, l = peoples.length; i < l; i++) {
+      tempPlayer = peoples[i];
+
+      drawPeople(tempPlayer.skin, tempPlayer.position[0], tempPlayer.position[1], tempPlayer.size[0], tempPlayer.size[1], tempPlayer.name)
     }
   }
 };
@@ -85,13 +92,13 @@ var Player = function (e) {
   this.innerF = [0, Env.gravity];
   this.outterF = [0, 0];
   this.name = e.name;
-  this.size = [16 / 21, 1];
+  this.size = e.size || [16 / 21, 1];
   this.position = [1, 2];
   this.v = [0, 0];
   this.map = e.map;
-  this.skin = getBitmap('mario');
-  this.speed = 7;
-  this.jumpSpeed = 17;
+  this.skin = e.skin || getBitmap('mario');
+  this.speed = e.speed || 7;
+  this.jumpSpeed = e.jumpSpeed || 17;
   this.moving = 0;
 };
 
