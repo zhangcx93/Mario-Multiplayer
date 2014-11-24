@@ -1,10 +1,22 @@
-var connect = function (map) {
+var connect = function (map, name, room) {
   socket = io.connect("/");
+
+  var lastHeartBeat;
+
+  var heartBeat = setInterval(function () {
+    socket.emit("heartBeat", {
+      id: PlayerList[0].id,
+      roomId: PlayerList[0].roomId
+    });
+    lastHeartBeat = (new Date()).getTime();
+
+  }, 1000);
 
   socket.on("connect", function () {
     var tempLayer = new Player({
-      name: parseInt(Math.random() * 20),
-      map: map
+      name: name,
+      map: map,
+      roomId: room
     });
 
     tempLayer.request();
@@ -52,36 +64,29 @@ var connect = function (map) {
     for (var player in PlayerList) {
       if (PlayerList.hasOwnProperty(player) && PlayerList[player].id == data.id) {
         var tempPlayer = PlayerList[player];
-        if (data.direction == "l") {
-          tempPlayer.changeMoveStatus(-1);
-        }
-        else if (data.direction == "r") {
-          tempPlayer.changeMoveStatus(1);
-        }
-        else if (data.direction == "s") {
-          tempPlayer.stop();
-          tempPlayer.changeMoveStatus(0);
-        }
-        else if (data.direction == "r") {
-          tempPlayer.changeMoveStatus(1);
-        }
-        else if (data.direction == 'u') {
-          tempPlayer.jump();
-        }
+        tempPlayer.position = data.position;
+        tempPlayer.update();
+        //if (data.direction == "l") {
+        //  tempPlayer.changeMoveStatus(-1);
+        //}
+        //else if (data.direction == "r") {
+        //  tempPlayer.changeMoveStatus(1);
+        //}
+        //else if (data.direction == "s") {
+        //  tempPlayer.stop();
+        //  tempPlayer.changeMoveStatus(0);
+        //}
+        //else if (data.direction == "r") {
+        //  tempPlayer.changeMoveStatus(1);
+        //}
+        //else if (data.direction == 'u') {
+        //  tempPlayer.jump();
+        //}
       }
     }
   });
 
-  var lastHeartBeat;
 
-  var heartBeat = setInterval(function () {
-    socket.emit("heartBeat", {
-      id: PlayerList[0].id,
-      roomId: PlayerList[0].roomId
-    });
-    lastHeartBeat = (new Date()).getTime();
-
-  }, 1000);
 
 
   socket.on("resHeartBeat", function () {

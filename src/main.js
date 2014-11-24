@@ -1,4 +1,3 @@
-
 //main start:
 
 var init = function () {
@@ -61,7 +60,7 @@ var init = function () {
     material: brick
   });
 
-  var map = new Map();
+  map = new Map();
   map.addBlock(floors);
   map.addBlock(ladder);
   map.addBlock(edge);
@@ -73,50 +72,21 @@ var init = function () {
 
   initMap();
 
-  connect(map);
-  //
-  //var timer;
-  //
-  //var reflowAnimate, backgroundAnimate;
-  //
-  //var reflow = function (timestamp) {
-  //  //clearMap();
-  //
-  //  if(Game.pause) {
-  //    return;
-  //  }
-  //  clearTimeout(timer);
-  //  clearInterval(backgroundAnimate);
-  //
-  //  timer = setTimeout(function() {
-  //    Game.pause = true;
-  //    cancelAnimationFrame(reflowAnimate);
-  //    backgroundAnimate = setInterval(function() {
-  //      map.refresh();
-  //    }, parseInt(1000/frames));
-  //    requestAnimationFrame(function (tempStamp) {
-  //      Game.pause = false;
-  //      lastTimeStamp = tempStamp;
-  //      reflowAnimate = requestAnimationFrame(reflow);
-  //    });
-  //  }, 100);
-  //
-  //  map.refresh();
-  //  frames = parseInt(1000 / (timestamp - lastTimeStamp));
-  //  lastTimeStamp = timestamp;
-  //
-  //  clearPlayer();
-  //  map.showPeople();
-  //  reflowAnimate = requestAnimationFrame(reflow);
-  //};
-  //reflowAnimate = requestAnimationFrame(reflow);
+  var timer, refreshFrames;
 
   var updateFrame = function(timestamp) {
-    frames = parseInt(1000 / (timestamp - lastTimeStamp));
+    clearTimeout(timer);
+    if(!Game.leave) {
+      frames = parseInt(1000 / (timestamp - lastTimeStamp));
+    }
     lastTimeStamp = timestamp;
-    requestAnimationFrame(updateFrame);
+    Game.leave = false;
+    timer = setTimeout(function() {
+      Game.leave = true;
+    }, parseInt(1000 / frames * 5));
+    refreshFrames = requestAnimationFrame(updateFrame);
   };
-  requestAnimationFrame(updateFrame);
+  refreshFrames = requestAnimationFrame(updateFrame);
 
 };
 

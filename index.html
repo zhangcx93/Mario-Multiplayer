@@ -1,8 +1,9 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" ng-app="Mario">
 <head>
   <meta charset="UTF-8">
   <title>Mario!</title>
+  <script src="bower_components/angular/angular.min.js"></script>
 </head>
 <body>
 <style>
@@ -15,7 +16,6 @@
     background-color: black;
     overflow: hidden;
     text-align: center;
-    overflow: hidden;
   }
 
   #wrapper {
@@ -30,10 +30,63 @@
     image-rendering: crisp-edges;
   }
 
+  .menu {
+    background-color: white;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  .menu .title {
+    text-align: center;
+  }
+
+  a {
+    cursor: pointer;
+  }
+
 </style>
-<div id="wrapper">
-  <canvas id="map"></canvas>
-  <canvas id="player"></canvas>
+<div id="wrapper" ng-controller="mainCtrl">
+  <div id="menu" class="menu" ng-controller="menuCtrl" ng-show="onMenu">
+    <div class="title">
+      欢迎来到多人马里奥的世界！
+    </div>
+    <form>
+      <label for="PlayerName">壮士请留名</label>
+      <input type="text" id="PlayerName" name="PlayerName" ng-model="$parent.PlayerName"/>
+      <a ng-click="confirmName()">确定</a>
+    </form>
+  </div>
+  <div id="roomSelect" class="menu" ng-controller="roomCtrl" ng-show="onRoomSelect">
+    <a ng-click="getRoom()">刷新房间</a>
+
+    <a ng-click="newRoom()">新建房间</a>
+
+    <div class="newRoomPopup" ng-show="addNewRoom">
+      <label for="roomName">您的房间叫啥</label>
+      <input type="text" id="roomName" name="roomName" ng-model="$parent.roomName"/>
+      <a ng-click="confirmRoom()">确定</a>
+    </div>
+
+    <div class="roomList">
+      <div ng-repeat="room in RoomList">
+        <div>房间名: {{ room.name }}</div>
+        <div>最大人数: {{ room.max }}</div>
+        <div>现有人数: {{ room.playerList.length }}</div>
+        <span ng-show="room.playerList.length == room.max">已满</span>
+
+        <a ng-click="chooseRoom(room)">选择</a>
+      </div>
+      <div ng-show="RoomList.length == 0">
+        现在没有房间
+      </div>
+    </div>
+
+  </div>
+  <canvas id="map" ng-show="gameStart"></canvas>
+  <!--<canvas id="player"></canvas>-->
 </div>
 
 </body>

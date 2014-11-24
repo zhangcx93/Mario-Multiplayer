@@ -13,35 +13,35 @@ var bindKey = function () {
   window.addEventListener('keydown', function (e) {
     if (e.keyCode == 39) {
       //move right
-      socket.emit('playerMove', {
-        direction: "r",
-        position: PlayerList[0].position,
-        id: PlayerList[0].id,
-        roomId: PlayerList[0].roomId
-      });
-      //PlayerList[0].changeMoveStatus(1);
+      //socket.emit('playerMove', {
+      //  direction: "r",
+      //  position: PlayerList[0].position,
+      //  id: PlayerList[0].id,
+      //  roomId: PlayerList[0].roomId
+      //});
+      PlayerList[0].changeMoveStatus(1);
       keyStatus.right = true;
     }
     if (e.keyCode == 37) {
-      socket.emit('playerMove', {
-        direction: "l",
-        position: PlayerList[0].position,
-        id: PlayerList[0].id,
-        roomId: PlayerList[0].roomId
-      });
-      //PlayerList[0].changeMoveStatus(-1);
+      //socket.emit('playerMove', {
+      //  direction: "l",
+      //  position: PlayerList[0].position,
+      //  id: PlayerList[0].id,
+      //  roomId: PlayerList[0].roomId
+      //});
+      PlayerList[0].changeMoveStatus(-1);
       keyStatus.left = true;
 
     }
     if (e.keyCode == 32) {
-      socket.emit('playerMove', {
-        position: PlayerList[0].position,
-        direction: "u",
-        id: PlayerList[0].id,
-        roomId: PlayerList[0].roomId
-      });
+      //socket.emit('playerMove', {
+      //  position: PlayerList[0].position,
+      //  direction: "u",
+      //  id: PlayerList[0].id,
+      //  roomId: PlayerList[0].roomId
+      //});
       keyStatus.space = true;
-      //PlayerList[0].jump();
+      PlayerList[0].jump();
     }
   });
   window.addEventListener('keyup', function (e) {
@@ -53,14 +53,14 @@ var bindKey = function () {
     }
     if (isLastUp() && (e.keyCode == 39 || e.keyCode == 37)) {
       //console.log('Last Up', PlayerList);
-      socket.emit('playerMove', {
-        position: PlayerList[0].position,
-        direction: "s",
-        id: PlayerList[0].id,
-        roomId: PlayerList[0].roomId
-      });
-      //PlayerList[0].stop();
-      //PlayerList[0].changeMoveStatus(0);
+      //socket.emit('playerMove', {
+      //  position: PlayerList[0].position,
+      //  direction: "s",
+      //  id: PlayerList[0].id,
+      //  roomId: PlayerList[0].roomId
+      //});
+      PlayerList[0].stop();
+      PlayerList[0].changeMoveStatus(0);
     }
   });
 };

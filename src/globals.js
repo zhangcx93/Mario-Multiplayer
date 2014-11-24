@@ -6,7 +6,8 @@ var Env = {
 
 var Game = {
   showName: true,
-  pause: false
+  pause: false,
+  leave: false
 };
 
 var PlayerList = [];
@@ -25,3 +26,5 @@ var bitmapsMap = {
 var bitmap = {};
 
 var socket;
+
+var map;

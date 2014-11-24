@@ -1,11 +1,11 @@
 /*! Mario-Multiplayer - v0.0.1 - 2014-11-24
 * http://geetest.com/
 * Copyright (c) 2014 zhangcx93; Licensed  */
-var mapCanvas = document.getElementById('map');
-mapCtx = mapCanvas.getContext('2d');
-//
-//var playerCanvas = document.getElementById('player');
-//playerCtx = playerCanvas.getContext('2d');
+var mapCanvas = document.getElementById('map'),
+  mapCtx = mapCanvas.getContext('2d');
+
+var menuDom = document.getElementById("menu");
+var roomSelectDom = document.getElementById("roomSelect");
 
 var wrapperDom = document.getElementById('wrapper');
 
@@ -39,7 +39,8 @@ var Env = {
 
 var Game = {
   showName: true,
-  pause: false
+  pause: false,
+  leave: false
 };
 
 var PlayerList = [];
@@ -59,6 +60,7 @@ var bitmap = {};
 
 var socket;
 
+var map;
 var drawBlock = function (img, x, y) {
   mapCtx.drawImage(img, 0, 0, img.width, img.height, x * unit, y * unit, unit, unit)
 };
@@ -86,7 +88,7 @@ var getObjectSize = function (obj) {
 
 var bitMapLoaded = 0;
 
-loadBitmap = function (callback) {
+var loadBitmap = function (callback) {
   var length = getObjectSize(bitmapsMap);
   var onload = function () {
     if (bitMapLoaded == length - 1) {
@@ -205,7 +207,7 @@ var Player = function (e) {
   this.innerF = [0, Env.gravity];
   this.outterF = [0, 0];
   this.name = e.name;
-  this.team = e.team == 0 ? 0: (e.team || -1);//-1 means undefined, 0 means left team, 1 means right team
+  this.team = e.team == 0 ? 0 : (e.team || -1);//-1 means undefined, 0 means left team, 1 means right team
   this.size = e.size || [16 / 21, 1];
   this.position = e.position || [1, 2];
   this.v = [0, 0];
@@ -216,7 +218,6 @@ var Player = function (e) {
   this.moving = 0;
   this.id = e.id;
   this.roomId = e.roomId;
-  //this.request();
 
   return this;
 };
@@ -226,7 +227,8 @@ Player.prototype = {
     //add canvas to content;
     socket.emit('addPlayer', {
       name: this.name,
-      team: this.team
+      team: this.team,
+      roomId: this.roomId
     });
   },
   initDom: function () {
@@ -239,12 +241,36 @@ Player.prototype = {
     return this;
   },
   render: function () {
-    this.notMoving = false;
     var reflowAnimate;
 
-    var that = this;
+    var that = this, leaveTimeout, CPUReflow;
 
-    var reflow = function (timestamp) {
+    var CPURender = function() {
+      that.refresh();
+      if (that.v[0] == 0 && that.v[1] == 0 && that.onEdge()[1]) {
+        console.log(that, 'CPU render not moving');
+        that.notMoving = true;
+        return;
+      }
+      CPUReflow = setTimeout(CPURender, parseInt(1000 / 60));
+    };
+
+
+    var reflowByCPU = function() {
+      console.log('start Render BY CPU');
+      CPUReflow = setTimeout(CPURender, parseInt(1000 / 60));
+    };
+
+    if(Game.leave && !that.notMoving) {
+      reflowByCPU();
+    }
+
+    this.notMoving = false;
+
+    var reflow = function () {
+      //console.log('reflow', that.name);
+      clearTimeout(CPUReflow);
+      clearTimeout(leaveTimeout);
       that.refresh();
       that.clearPlayer();
       drawPeople(that.playerCtx, that.skin, that.position[0], that.position[1], that.size[0], that.size[1], that.name);
@@ -253,9 +279,19 @@ Player.prototype = {
         that.notMoving = true;
         return;
       }
+      leaveTimeout = setTimeout(function () {
+        reflowByCPU();
+      }, parseInt(1000 / frames * 5));
+
+
       reflowAnimate = requestAnimationFrame(reflow);
     };
     reflowAnimate = requestAnimationFrame(reflow);
+  },
+  update: function() {
+    var that = this;
+    that.clearPlayer();
+    drawPeople(that.playerCtx, that.skin, that.position[0], that.position[1], that.size[0], that.size[1], that.name);
   },
   refresh: function () {
     var tempPlayer = this;
@@ -285,6 +321,13 @@ Player.prototype = {
     else {
       tempPlayer.position[0] += tempPlayer.v[0] / frames;
     }
+
+    socket.emit("playerMove", {
+        position: tempPlayer.position,
+        id: tempPlayer.id,
+        roomId: tempPlayer.roomId
+    });
+
     //console.log(tempPlayer.v);
   },
   clearPlayer: function () {
@@ -292,7 +335,7 @@ Player.prototype = {
   },
   changeMoveStatus: function (right) {
     this.moving = right;
-    if(this.notMoving) {
+    if (this.notMoving || Game.leave) {
       this.render();
     }
   },
@@ -305,7 +348,7 @@ Player.prototype = {
   jump: function () {
     if (this.onEdge()[1]) {
       this.v[1] = -this.jumpSpeed;
-      if(this.notMoving) {
+      if (this.notMoving || Game.leave) {
         this.render();
       }
     }
@@ -355,7 +398,7 @@ Player.prototype = {
 
     return result;
   },
-  destroy: function() {
+  destroy: function () {
     var playerCanvas = this.playerCanvas;
     playerCanvas.parentNode.removeChild(playerCanvas);
   }
@@ -375,35 +418,35 @@ var bindKey = function () {
   window.addEventListener('keydown', function (e) {
     if (e.keyCode == 39) {
       //move right
-      socket.emit('playerMove', {
-        direction: "r",
-        position: PlayerList[0].position,
-        id: PlayerList[0].id,
-        roomId: PlayerList[0].roomId
-      });
-      //PlayerList[0].changeMoveStatus(1);
+      //socket.emit('playerMove', {
+      //  direction: "r",
+      //  position: PlayerList[0].position,
+      //  id: PlayerList[0].id,
+      //  roomId: PlayerList[0].roomId
+      //});
+      PlayerList[0].changeMoveStatus(1);
       keyStatus.right = true;
     }
     if (e.keyCode == 37) {
-      socket.emit('playerMove', {
-        direction: "l",
-        position: PlayerList[0].position,
-        id: PlayerList[0].id,
-        roomId: PlayerList[0].roomId
-      });
-      //PlayerList[0].changeMoveStatus(-1);
+      //socket.emit('playerMove', {
+      //  direction: "l",
+      //  position: PlayerList[0].position,
+      //  id: PlayerList[0].id,
+      //  roomId: PlayerList[0].roomId
+      //});
+      PlayerList[0].changeMoveStatus(-1);
       keyStatus.left = true;
 
     }
     if (e.keyCode == 32) {
-      socket.emit('playerMove', {
-        position: PlayerList[0].position,
-        direction: "u",
-        id: PlayerList[0].id,
-        roomId: PlayerList[0].roomId
-      });
+      //socket.emit('playerMove', {
+      //  position: PlayerList[0].position,
+      //  direction: "u",
+      //  id: PlayerList[0].id,
+      //  roomId: PlayerList[0].roomId
+      //});
       keyStatus.space = true;
-      //PlayerList[0].jump();
+      PlayerList[0].jump();
     }
   });
   window.addEventListener('keyup', function (e) {
@@ -415,24 +458,36 @@ var bindKey = function () {
     }
     if (isLastUp() && (e.keyCode == 39 || e.keyCode == 37)) {
       //console.log('Last Up', PlayerList);
-      socket.emit('playerMove', {
-        position: PlayerList[0].position,
-        direction: "s",
-        id: PlayerList[0].id,
-        roomId: PlayerList[0].roomId
-      });
-      //PlayerList[0].stop();
-      //PlayerList[0].changeMoveStatus(0);
+      //socket.emit('playerMove', {
+      //  position: PlayerList[0].position,
+      //  direction: "s",
+      //  id: PlayerList[0].id,
+      //  roomId: PlayerList[0].roomId
+      //});
+      PlayerList[0].stop();
+      PlayerList[0].changeMoveStatus(0);
     }
   });
 };
-var connect = function (map) {
+var connect = function (map, name, room) {
   socket = io.connect("/");
+
+  var lastHeartBeat;
+
+  var heartBeat = setInterval(function () {
+    socket.emit("heartBeat", {
+      id: PlayerList[0].id,
+      roomId: PlayerList[0].roomId
+    });
+    lastHeartBeat = (new Date()).getTime();
+
+  }, 1000);
 
   socket.on("connect", function () {
     var tempLayer = new Player({
-      name: parseInt(Math.random() * 20),
-      map: map
+      name: name,
+      map: map,
+      roomId: room
     });
 
     tempLayer.request();
@@ -480,43 +535,35 @@ var connect = function (map) {
     for (var player in PlayerList) {
       if (PlayerList.hasOwnProperty(player) && PlayerList[player].id == data.id) {
         var tempPlayer = PlayerList[player];
-        if (data.direction == "l") {
-          tempPlayer.changeMoveStatus(-1);
-        }
-        else if (data.direction == "r") {
-          tempPlayer.changeMoveStatus(1);
-        }
-        else if (data.direction == "s") {
-          tempPlayer.stop();
-          tempPlayer.changeMoveStatus(0);
-        }
-        else if (data.direction == "r") {
-          tempPlayer.changeMoveStatus(1);
-        }
-        else if (data.direction == 'u') {
-          tempPlayer.jump();
-        }
+        tempPlayer.position = data.position;
+        tempPlayer.update();
+        //if (data.direction == "l") {
+        //  tempPlayer.changeMoveStatus(-1);
+        //}
+        //else if (data.direction == "r") {
+        //  tempPlayer.changeMoveStatus(1);
+        //}
+        //else if (data.direction == "s") {
+        //  tempPlayer.stop();
+        //  tempPlayer.changeMoveStatus(0);
+        //}
+        //else if (data.direction == "r") {
+        //  tempPlayer.changeMoveStatus(1);
+        //}
+        //else if (data.direction == 'u') {
+        //  tempPlayer.jump();
+        //}
       }
     }
   });
 
-  var lastHeartBeat;
 
-  var heartBeat = setInterval(function () {
-    socket.emit("heartBeat", {
-      id: PlayerList[0].id,
-      roomId: PlayerList[0].roomId
-    });
-    lastHeartBeat = (new Date()).getTime();
-
-  }, 1000);
 
 
   socket.on("resHeartBeat", function () {
     console.log('heart Beat Recieved');
   });
 };
-
 
 //main start:
 
@@ -580,7 +627,7 @@ var init = function () {
     material: brick
   });
 
-  var map = new Map();
+  map = new Map();
   map.addBlock(floors);
   map.addBlock(ladder);
   map.addBlock(edge);
@@ -592,51 +639,76 @@ var init = function () {
 
   initMap();
 
-  connect(map);
-  //
-  //var timer;
-  //
-  //var reflowAnimate, backgroundAnimate;
-  //
-  //var reflow = function (timestamp) {
-  //  //clearMap();
-  //
-  //  if(Game.pause) {
-  //    return;
-  //  }
-  //  clearTimeout(timer);
-  //  clearInterval(backgroundAnimate);
-  //
-  //  timer = setTimeout(function() {
-  //    Game.pause = true;
-  //    cancelAnimationFrame(reflowAnimate);
-  //    backgroundAnimate = setInterval(function() {
-  //      map.refresh();
-  //    }, parseInt(1000/frames));
-  //    requestAnimationFrame(function (tempStamp) {
-  //      Game.pause = false;
-  //      lastTimeStamp = tempStamp;
-  //      reflowAnimate = requestAnimationFrame(reflow);
-  //    });
-  //  }, 100);
-  //
-  //  map.refresh();
-  //  frames = parseInt(1000 / (timestamp - lastTimeStamp));
-  //  lastTimeStamp = timestamp;
-  //
-  //  clearPlayer();
-  //  map.showPeople();
-  //  reflowAnimate = requestAnimationFrame(reflow);
-  //};
-  //reflowAnimate = requestAnimationFrame(reflow);
+  var timer, refreshFrames;
 
   var updateFrame = function(timestamp) {
-    frames = parseInt(1000 / (timestamp - lastTimeStamp));
+    clearTimeout(timer);
+    if(!Game.leave) {
+      frames = parseInt(1000 / (timestamp - lastTimeStamp));
+    }
     lastTimeStamp = timestamp;
-    requestAnimationFrame(updateFrame);
+    Game.leave = false;
+    timer = setTimeout(function() {
+      Game.leave = true;
+    }, parseInt(1000 / frames * 5));
+    refreshFrames = requestAnimationFrame(updateFrame);
   };
-  requestAnimationFrame(updateFrame);
+  refreshFrames = requestAnimationFrame(updateFrame);
 
 };
 
 loadBitmap(init);
+
+'use strict';
+
+angular
+  .module('Mario', [])
+  .controller('mainCtrl', function ($scope) {
+    $scope.PlayerName = "John";
+    $scope.onMenu = true;
+    $scope.gameStart = false;
+    $scope.roomName = "";
+  })
+  .controller('menuCtrl', function ($scope) {
+    $scope.confirmName = function () {
+      $scope.$parent.onMenu = false;
+      $scope.$parent.onRoomSelect = true;
+    }
+  })
+  .controller("roomCtrl", function ($scope, $http) {
+    $scope.RoomList = [];
+    $scope.getRoom = function () {
+      $http.get('/getRooms').success(function (data) {
+        $scope.RoomList = data;
+      })
+    };
+    $scope.getRoom();
+    $scope.newRoom = function () {
+      $scope.addNewRoom = true;
+      $scope.$parent.roomName = $scope.$parent.PlayerName + "的房间";
+    };
+    $scope.confirmRoom = function () {
+      $http.post('/createRoom', {
+        name: $scope.$parent.roomName
+      }).success(function (data) {
+        if (data.success) {
+          $scope.getRoom();
+
+        }
+      })
+    };
+    $scope.chooseRoom = function (room) {
+      $http.post('/start', {
+        room: room,
+        player: {
+          name: $scope.$parent.PlayerName,
+          team: -1
+        }
+      }).success(function (data) {
+        $scope.$parent.onRoomSelect = false;
+        $scope.$parent.gameStart = true;
+        connect(map, $scope.$parent.PlayerName, data.room);
+      })
+    }
+  })
+;

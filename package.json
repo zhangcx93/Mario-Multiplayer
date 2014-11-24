@@ -18,6 +18,7 @@
   },
   "description": "Multiplayer Mario based on canvas and node.js",
   "dependencies": {
+    "body-parser": "^1.9.3",
     "express": "^4.10.2",
     "socket.io": "^1.2.1"
   }

@@ -2,8 +2,11 @@ var express = require('express');
 var app = express();
 var server = require('http').Server(app);
 var io = require('socket.io')(server);
+var bodyParser = require('body-parser');
 
-server.listen(80);
+app.use(bodyParser());
+
+server.listen(8000);
 
 app.get('/', function (req, res) {
   res.sendFile(__dirname + '/index.html');
@@ -13,7 +16,6 @@ app.use(express.static(__dirname + '/'));
 
 var Room = function (e) {
   this.name = e.name;
-  this.socketRoom = e.socketRoom;
   this.id = parseInt((new Date()).getTime());
   this.max = 4;
   this.playerList = [];
@@ -36,7 +38,7 @@ Room.prototype = {
       that.teamStatus[that.nextTeam()]++
     }
 
-    socket.join(that.socketRoom);
+    socket.join(that.id);
 
     player.id = parseInt(Math.random() * 10000);
 
@@ -47,66 +49,62 @@ Room.prototype = {
       me: player
     });
 
-    socket.broadcast.to(that.socketRoom).emit('newPlayer', player);
+    socket.broadcast.to(that.id).emit('newPlayer', player);
 
     that.playerList.push(player);
 
     console.log('Player ' + player.id + " added");
   },
-  removePlayer: function (id, socket) {
+  removePlayer: function (id) {
     var that = this;
-    for (var j = 0, peoples = that.playerList.length; j < peoples; j++) {
-      if (that.playerList[j].id == id) {
-        var team = that.playerList[j].team;
-
-        that.teamStatus[team]--;
-
-        that.playerList.splice(j, 1);
-
-        io.sockets.in(that.socketRoom).emit('removePlayer', id);
-        console.log("Player " + id + " in " + that.socketRoom + " is removed");
-
-        return;
+    var player = this.getPlayerById(id);
+    var team = player.team;
+    that.teamStatus[team]--;
+    that.playerList.splice(that.playerList.indexOf(player), 1);
+    io.sockets.in(that.id).emit('removePlayer', id);
+    console.log("Player " + id + " in " + that.id + " is removed");
+  },
+  isFree: function () {
+    return this.max > this.playerList.length
+  },
+  getPlayerById: function (id) {
+    for (var i = 0, peoples = roomList[i].playerList.length; i < peoples; i++) {
+      if (peoples > 0 && this.playerList[i].id == id) {
+        return this.playerList[i];
       }
     }
+    return false;
   }
 };
 
 var roomList = [];
 
+var getRoomById = function (id) {
+  for (var i = 0, l = roomList.length; i < l; i++) {
+    if (roomList[i].id == id) {
+      return roomList[i];
+    }
+  }
+  return false;
+};
+
+
 io.on('connection', function (socket) {
-  //socket.emit('news', { hello: 'world' });
-  socket.on("playerMove", function (data) {
-    for(var i = 0; i < roomList.length; i++) {
-      if(roomList[i].id == data.roomId) {
-        io.sockets.in(roomList[i].socketRoom).emit('playerMove', data);
-      }
+  socket.on('addPlayer', function (data) {
+    var room = getRoomById(data.roomId);
+    if (room) {
+      room.addPlayer({
+        name: data.name,
+        team: data.team
+      }, socket)
     }
   });
 
-  socket.on('addPlayer', function (data) {
-    //check all room, find a free one
-
-    var roomListLength = roomList.length, nowRoom;
-
-    if (!roomListLength) {
-      //not even one room;
-      nowRoom = new Room({
-        name: data.name + "'s Room",
-        socketRoom: data.name + "'s Room"
-      });
-      nowRoom.addPlayer(data, socket);
-    }
-    else {
-      for (var i = 0; i < roomListLength; i++) {
-        if (roomList[i].playerList.length < roomList[i].max) {
-          //this room is free
-          nowRoom = roomList[i];
-          nowRoom.addPlayer(data, socket);
-          return;
-        }
-      }
-    }
+  socket.on("playerMove", function (data) {
+    var room = getRoomById(data.roomId);
+    var player = room.getPlayerById(data.id);
+    player.position = data.position;
+    socket.broadcast.to(room.id).emit('playerMove', data);
   });
 
   var heartBeat;
@@ -114,19 +112,51 @@ io.on('connection', function (socket) {
   socket.on('heartBeat', function (player) {
     clearTimeout(heartBeat);
     heartBeat = setTimeout(function () {
-      for (var i = 0, l = roomList.length; i < l; i++) {
-        if (roomList[i].id == player.roomId) {
-          for (var j = 0, peoples = roomList[i].playerList.length; j < peoples; j++) {
-            if (peoples > 0 && roomList[i].playerList[j].id == player.id) {
-              roomList[i].removePlayer(player.id, socket);
-              return;
-            }
-          }
+      var room = getRoomById(player.roomId);
+
+      if (room) {
+        var nowPlayer = room.getPlayerById(player.id);
+
+        if (nowPlayer) {
+          room.removePlayer(player.id, socket);
         }
       }
+
+
     }, 5000);
     //5s timeout to disconnect a player;
   })
 
 
+});
+
+app.get('/getRooms', function (req, res) {
+  res.json(roomList);
+});
+
+app.post('/createRoom', function (req, res) {
+  var name = req.body.name;
+  var newRoom = new Room({
+    name: name
+  });
+  res.json({
+    success: true
+  })
+});
+
+app.post('/start', function (req, res) {
+  var roomId = req.body.room.id;
+  var room = getRoomById(roomId);
+  if (room.isFree()) {
+    res.json({
+      success: true,
+      room: roomId
+    })
+  }
+  else {
+    res.json({
+      success: false,
+      err: "room is full"
+    })
+  }
 });

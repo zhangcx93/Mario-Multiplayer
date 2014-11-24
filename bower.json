@@ -1,0 +1,14 @@
+{
+  "name": "Mario-Multiplayer",
+  "version": "0.0.1",
+  "homepage": "https://github.com/zhangcx93/Mario-Multiplayer",
+  "authors": [
+    "zhangcx93 <zhangcx93@gmail.com>"
+  ],
+  "description": "Multiplayer Mario based on canvas and node.js",
+  "main": "index.html",
+  "license": "MIT",
+  "dependencies": {
+    "angular": "~1.3.3"
+  }
+}

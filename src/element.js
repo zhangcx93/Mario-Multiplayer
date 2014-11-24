@@ -1,8 +1,8 @@
-var mapCanvas = document.getElementById('map');
-mapCtx = mapCanvas.getContext('2d');
-//
-//var playerCanvas = document.getElementById('player');
-//playerCtx = playerCanvas.getContext('2d');
+var mapCanvas = document.getElementById('map'),
+  mapCtx = mapCanvas.getContext('2d');
+
+var menuDom = document.getElementById("menu");
+var roomSelectDom = document.getElementById("roomSelect");
 
 var wrapperDom = document.getElementById('wrapper');
 

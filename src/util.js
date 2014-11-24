@@ -25,7 +25,7 @@ var getObjectSize = function (obj) {
 
 var bitMapLoaded = 0;
 
-loadBitmap = function (callback) {
+var loadBitmap = function (callback) {
   var length = getObjectSize(bitmapsMap);
   var onload = function () {
     if (bitMapLoaded == length - 1) {
