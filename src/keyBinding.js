@@ -1,4 +1,4 @@
-var bindKey = function() {
+var bindKey = function () {
 
   var keyStatus = {
     "right": false,
@@ -15,7 +15,9 @@ var bindKey = function() {
       //move right
       socket.emit('playerMove', {
         direction: "r",
-        id: PlayerList[0].id
+        position: PlayerList[0].position,
+        id: PlayerList[0].id,
+        roomId: PlayerList[0].roomId
       });
       //PlayerList[0].changeMoveStatus(1);
       keyStatus.right = true;
@@ -23,7 +25,9 @@ var bindKey = function() {
     if (e.keyCode == 37) {
       socket.emit('playerMove', {
         direction: "l",
-        id: PlayerList[0].id
+        position: PlayerList[0].position,
+        id: PlayerList[0].id,
+        roomId: PlayerList[0].roomId
       });
       //PlayerList[0].changeMoveStatus(-1);
       keyStatus.left = true;
@@ -31,8 +35,10 @@ var bindKey = function() {
     }
     if (e.keyCode == 32) {
       socket.emit('playerMove', {
+        position: PlayerList[0].position,
         direction: "u",
-        id: PlayerList[0].id
+        id: PlayerList[0].id,
+        roomId: PlayerList[0].roomId
       });
       keyStatus.space = true;
       //PlayerList[0].jump();
@@ -45,11 +51,13 @@ var bindKey = function() {
     if (e.keyCode == 37) {
       keyStatus.left = false;
     }
-    if (isLastUp()) {
+    if (isLastUp() && (e.keyCode == 39 || e.keyCode == 37)) {
       //console.log('Last Up', PlayerList);
       socket.emit('playerMove', {
+        position: PlayerList[0].position,
         direction: "s",
-        id: PlayerList[0].id
+        id: PlayerList[0].id,
+        roomId: PlayerList[0].roomId
       });
       //PlayerList[0].stop();
       //PlayerList[0].changeMoveStatus(0);

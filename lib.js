@@ -215,6 +215,7 @@ var Player = function (e) {
   this.jumpSpeed = e.jumpSpeed || 17;
   this.moving = 0;
   this.id = e.id;
+  this.roomId = e.roomId;
   //this.request();
 
   return this;
@@ -247,7 +248,7 @@ Player.prototype = {
       that.refresh();
       that.clearPlayer();
       drawPeople(that.playerCtx, that.skin, that.position[0], that.position[1], that.size[0], that.size[1], that.name);
-      if (that.v[0] == 0 && that.v[1] == 0 && !that.onEdge()[1]) {
+      if (that.v[0] == 0 && that.v[1] == 0 && that.onEdge()[1]) {
         console.log(that, 'not moving');
         that.notMoving = true;
         return;
@@ -304,6 +305,9 @@ Player.prototype = {
   jump: function () {
     if (this.onEdge()[1]) {
       this.v[1] = -this.jumpSpeed;
+      if(this.notMoving) {
+        this.render();
+      }
     }
   },
   stop: function () {
@@ -349,11 +353,14 @@ Player.prototype = {
 
     result.push(this.map.solidObj[checkY[0]] || this.map.solidObj[checkY[1]]);
 
-
     return result;
+  },
+  destroy: function() {
+    var playerCanvas = this.playerCanvas;
+    playerCanvas.parentNode.removeChild(playerCanvas);
   }
 };
-var bindKey = function() {
+var bindKey = function () {
 
   var keyStatus = {
     "right": false,
@@ -370,7 +377,9 @@ var bindKey = function() {
       //move right
       socket.emit('playerMove', {
         direction: "r",
-        id: PlayerList[0].id
+        position: PlayerList[0].position,
+        id: PlayerList[0].id,
+        roomId: PlayerList[0].roomId
       });
       //PlayerList[0].changeMoveStatus(1);
       keyStatus.right = true;
@@ -378,7 +387,9 @@ var bindKey = function() {
     if (e.keyCode == 37) {
       socket.emit('playerMove', {
         direction: "l",
-        id: PlayerList[0].id
+        position: PlayerList[0].position,
+        id: PlayerList[0].id,
+        roomId: PlayerList[0].roomId
       });
       //PlayerList[0].changeMoveStatus(-1);
       keyStatus.left = true;
@@ -386,8 +397,10 @@ var bindKey = function() {
     }
     if (e.keyCode == 32) {
       socket.emit('playerMove', {
+        position: PlayerList[0].position,
         direction: "u",
-        id: PlayerList[0].id
+        id: PlayerList[0].id,
+        roomId: PlayerList[0].roomId
       });
       keyStatus.space = true;
       //PlayerList[0].jump();
@@ -400,11 +413,13 @@ var bindKey = function() {
     if (e.keyCode == 37) {
       keyStatus.left = false;
     }
-    if (isLastUp()) {
+    if (isLastUp() && (e.keyCode == 39 || e.keyCode == 37)) {
       //console.log('Last Up', PlayerList);
       socket.emit('playerMove', {
+        position: PlayerList[0].position,
         direction: "s",
-        id: PlayerList[0].id
+        id: PlayerList[0].id,
+        roomId: PlayerList[0].roomId
       });
       //PlayerList[0].stop();
       //PlayerList[0].changeMoveStatus(0);
@@ -416,7 +431,7 @@ var connect = function (map) {
 
   socket.on("connect", function () {
     var tempLayer = new Player({
-      name: parseInt(Math.random()*20),
+      name: parseInt(Math.random() * 20),
       map: map
     });
 
@@ -449,29 +464,56 @@ var connect = function (map) {
     tempPlayer.initDom().render();
   });
 
-  socket.on("playerMove", function(data) {
+  socket.on('removePlayer', function (id) {
+    console.log(id + ' Player removed');
+    for (var i = 0, l = PlayerList.length; i < l; i++) {
+      if (PlayerList[i].id == id) {
+        PlayerList[i].destroy();
+        PlayerList.splice(i, 1);
+        return;
+      }
+    }
+  });
+
+  socket.on("playerMove", function (data) {
     console.log("Player Move received: ", data);
-    for(var player in PlayerList) {
-      if(PlayerList.hasOwnProperty(player) && PlayerList[player].id == data.id) {
+    for (var player in PlayerList) {
+      if (PlayerList.hasOwnProperty(player) && PlayerList[player].id == data.id) {
         var tempPlayer = PlayerList[player];
-        if(data.direction == "l") {
+        if (data.direction == "l") {
           tempPlayer.changeMoveStatus(-1);
         }
-        else if(data.direction == "r") {
+        else if (data.direction == "r") {
           tempPlayer.changeMoveStatus(1);
         }
-        else if(data.direction == "s") {
+        else if (data.direction == "s") {
           tempPlayer.stop();
           tempPlayer.changeMoveStatus(0);
         }
-        else if(data.direction == "r") {
+        else if (data.direction == "r") {
           tempPlayer.changeMoveStatus(1);
         }
-        else if(data.direction == 'u') {
+        else if (data.direction == 'u') {
           tempPlayer.jump();
         }
       }
     }
+  });
+
+  var lastHeartBeat;
+
+  var heartBeat = setInterval(function () {
+    socket.emit("heartBeat", {
+      id: PlayerList[0].id,
+      roomId: PlayerList[0].roomId
+    });
+    lastHeartBeat = (new Date()).getTime();
+
+  }, 1000);
+
+
+  socket.on("resHeartBeat", function () {
+    console.log('heart Beat Recieved');
   });
 };
 

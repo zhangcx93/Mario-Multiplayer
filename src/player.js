@@ -13,6 +13,7 @@ var Player = function (e) {
   this.jumpSpeed = e.jumpSpeed || 17;
   this.moving = 0;
   this.id = e.id;
+  this.roomId = e.roomId;
   //this.request();
 
   return this;
@@ -45,7 +46,7 @@ Player.prototype = {
       that.refresh();
       that.clearPlayer();
       drawPeople(that.playerCtx, that.skin, that.position[0], that.position[1], that.size[0], that.size[1], that.name);
-      if (that.v[0] == 0 && that.v[1] == 0 && !that.onEdge()[1]) {
+      if (that.v[0] == 0 && that.v[1] == 0 && that.onEdge()[1]) {
         console.log(that, 'not moving');
         that.notMoving = true;
         return;
@@ -102,6 +103,9 @@ Player.prototype = {
   jump: function () {
     if (this.onEdge()[1]) {
       this.v[1] = -this.jumpSpeed;
+      if(this.notMoving) {
+        this.render();
+      }
     }
   },
   stop: function () {
@@ -147,7 +151,10 @@ Player.prototype = {
 
     result.push(this.map.solidObj[checkY[0]] || this.map.solidObj[checkY[1]]);
 
-
     return result;
+  },
+  destroy: function() {
+    var playerCanvas = this.playerCanvas;
+    playerCanvas.parentNode.removeChild(playerCanvas);
   }
 };
