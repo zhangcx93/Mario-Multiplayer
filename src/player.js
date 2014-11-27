@@ -10,8 +10,11 @@ var Player = function (e) {
   this.ctx = this.playerCanvas.getContext('2d');
   this.playerCanvas.width = mapPixel[0];
   this.playerCanvas.height = mapPixel[1];
-  this.jumpSpeed = e.jumpSpeed || 12;
+  this.jumpSpeed = e.jumpSpeed || 17;
   this.ctx.imageSmoothingEnabled = false;
+  this.v = [0, 0];
+  this.innerF = [];
+  this.outterF = [];
   gameWrapperDom.appendChild(this.playerCanvas);
 
   this.moving = true;
@@ -40,8 +43,6 @@ Player.prototype.move = function (direction) {
         value: self.speed * direction
       });
     }
-
-
   }
   else {
     //make stop
@@ -54,11 +55,12 @@ Player.prototype.move = function (direction) {
 };
 
 Player.prototype.jump = function () {
-  if (this.isOnGround()) {
-    this.v[1] = -this.jumpSpeed;
-    if (!this.moving) {
-      this.moving = true;
-      this.checkUpdate();
+  var self = this;
+  if (self.isOnGround()) {
+    self.v[1] = -self.jumpSpeed;
+    if (!self.moving) {
+      self.moving = true;
+      self.checkUpdate();
     }
   }
 };

@@ -34,7 +34,7 @@ mapCtx.imageSmoothingEnabled = false;
 
 mapCtx.fillRect(0, 0, mapPixel[0], mapPixel[1]);
 var Env = {
-  gravity: 30,
+  gravity: 40,
   maxSpeed: 17,
   drag: 0.5
 };
@@ -135,7 +135,13 @@ var Force = function (e) {
 Force.prototype.addPushed = function (pushed) {
   if (this.pushed.indexOf(pushed) == -1) {
     this.pushed.push(pushed);
+    pushed.outterF.push(this);
   }
+};
+
+Force.prototype.deletePushed = function (pushed) {
+  this.pushed.splice(this.pushed.indexOf(pushed), 1);
+  pushed.outterF.splice(pushed.outterF.indexOf(this), 1)
 };
 
 Force.prototype.destroy = function () {
@@ -189,9 +195,9 @@ Block.prototype = {
     this.draw();
   },
   getAllForce: function () {
-    if (this.isPushingSolid()) {
-      return 0;
-    }
+    //if (this.isPushingSolid()) {
+    //  return 0;
+    //}
 
     var max = 0, min = 0;
     for (var i = 0, l = this.outterF.length; i < l; i++) {
@@ -221,7 +227,7 @@ Block.prototype = {
         if (this.v[0] > 0) {
           //go right
           if (this.position[0] + this.v[0] / frames + this.size[0] > obj.position[0] //next overflow
-            && this.position[0] + this.size[0] <= obj.position[0] // now not overflow
+            && this.position[0] <= obj.position[0] + obj.size[0] // now righter
             && ((this.position[1] >= obj.position[1] && this.position[1] < obj.position[1] + obj.size[1])
             || (this.position[1] + this.size[1] > obj.position[1] && this.position[1] + this.size[1] <= obj.position[1] + obj.size[1]))
           ) {
@@ -231,7 +237,7 @@ Block.prototype = {
         else if (this.v[0] < 0) {
           //go left
           if (this.position[0] + this.v[0] / frames < obj.position[0] + obj.size[0] //next overflow
-            && this.position[0] >= obj.position[0] + obj.size[0] // now not overflow
+            && this.position[0] >= obj.position[0] // now lefter
             && ((this.position[1] >= obj.position[1] && this.position[1] < obj.position[1] + obj.size[1])
             || (this.position[1] + this.size[1] > obj.position[1] && this.position[1] + this.size[1] <= obj.position[1] + obj.size[1]))
           ) {
@@ -304,7 +310,16 @@ Block.prototype = {
   },
   isPushingSolid: function () {
     //if i'm pushing someone pushing solid stuff, or pushing solid stuff;
-    return this.pushed && (!this.pushed.moveable || this.pushed.isPushingSolid());
+    if(!this.innerF[0]) {
+      return false;
+    }
+    var pushed = this.innerF[0].pushed;
+    for(var i = 0, l = pushed.length; i < l ;i++) {
+      if (!pushed[i].moveable || pushed[i].isPushingSolid()) {
+        return true;
+      }
+    }
+    return false;
   },
   update: function (pusher, force) {
     var self = this;
@@ -314,28 +329,33 @@ Block.prototype = {
         pusher.position[0] = self.position[0] + (pusher.v[0] > 0 ? (-pusher.size[0] - 0.00001) : self.size[0] + 0.00001);
         pusher.redraw();
       }
-      return "stop";
+      return false;
     }
 
     self.v[0] = self.getAllForce();
+
+    var pushed = self.checkCollision();
+
+    if(!pushed) {
+      if (self.innerF[0] && self.innerF[0].pushed[0]) {
+        self.innerF[0].deletePushed(self.innerF[0].pushed[0]);
+      }
+    }
+
+    if(self.isPushingSolid()) {
+      self.v[0] = 0;
+    }
+
     //on x axis:
 
     if (self.v[0] != 0) {
 
-      var pushed = this.pushed = self.checkCollision();
       if (pushed) {
-        //compare t
         var pushForce;
         if (self.innerF[0]) {
           //has self force
-          var oldValue = self.innerF[0].value;
           //remove this force, exchange with new force
-          self.innerF[0].destroy();
-          pushForce = new Force({
-            pusher: self,
-            pushed: pushed,
-            value: oldValue
-          });
+          self.innerF[0].addPushed(pushed);
         }
         if (force) {
           //pushed by someone else
@@ -343,9 +363,12 @@ Block.prototype = {
           pushForce = force;
         }
 
+        pushed.moving = true;
         pushed.update(self, pushForce);
+        pushed.checkUpdate();
       }
       else {
+        self.pushed = pushed;
         self.position[0] += self.v[0] / frames;
         self.redraw();
         if (pusher) {
@@ -357,22 +380,22 @@ Block.prototype = {
     else {
       if (self.pushed) {
         self.position[0] = self.pushed.position[0] + (self.v[0] > 0 ? (-self.size[0] - 0.00001) : self.pushed.size[0] + 0.00001);
-        //self.redraw();
       }
       //do nothing;
     }
 
     if (self.v[1] >= 0) {
+      self.v[1] += Env.gravity / frames;
+      if (self.v[1] > Env.maxSpeed) {
+        self.v[1] = Env.maxSpeed
+      }
       var ground = self.isOnGround();
       if (ground) {
         self.v[1] = 0;
+
         self.position[1] = ground.position[1] - self.size[1];
       }
       else {
-        self.v[1] += Env.gravity / frames;
-        if (self.v[1] > Env.maxSpeed) {
-          self.v[1] = Env.maxSpeed
-        }
         self.position[1] += self.v[1] / frames;
       }
     }
@@ -393,19 +416,23 @@ Block.prototype = {
 
     self.redraw();
 
-    if(self.v[0] == 0 && self.v[1] == 0) {
+    if (self.v[0] == 0 && self.v[1] == 0) {
       self.moving = false;
     }
 
   },
   checkUpdate: function () {
     var self = this;
+
     var animate = function () {
-      requestAnimationFrame(function () {
+      cancelAnimationFrame(self.animateFrame);
+      self.animateFrame = requestAnimationFrame(function () {
         self.update();
         if (self.moving) {
           animate();
-          return;
+        }
+        else {
+          //console.log(self.name, 'stop');
         }
       })
     };
@@ -453,8 +480,11 @@ var Player = function (e) {
   this.ctx = this.playerCanvas.getContext('2d');
   this.playerCanvas.width = mapPixel[0];
   this.playerCanvas.height = mapPixel[1];
-  this.jumpSpeed = e.jumpSpeed || 12;
+  this.jumpSpeed = e.jumpSpeed || 17;
   this.ctx.imageSmoothingEnabled = false;
+  this.v = [0, 0];
+  this.innerF = [];
+  this.outterF = [];
   gameWrapperDom.appendChild(this.playerCanvas);
 
   this.moving = true;
@@ -483,8 +513,6 @@ Player.prototype.move = function (direction) {
         value: self.speed * direction
       });
     }
-
-
   }
   else {
     //make stop
@@ -497,11 +525,12 @@ Player.prototype.move = function (direction) {
 };
 
 Player.prototype.jump = function () {
-  if (this.isOnGround()) {
-    this.v[1] = -this.jumpSpeed;
-    if (!this.moving) {
-      this.moving = true;
-      this.checkUpdate();
+  var self = this;
+  if (self.isOnGround()) {
+    self.v[1] = -self.jumpSpeed;
+    if (!self.moving) {
+      self.moving = true;
+      self.checkUpdate();
     }
   }
 };
@@ -720,7 +749,7 @@ var init = function () {
     size: [mapSize[0], 2]
   });
 
-  var ladder = new Block({
+  window.ladder = new Block({
     position: [5, 5],
     material: brick,
     size: [5, 1]
@@ -753,21 +782,21 @@ var init = function () {
     name: "John",
     id: 2333,
     team: 0,
-    position: [1, 1],
+    position: [5, 1],
     material: PeopleMaterial
   });
-  //
-  //
-  //window.Jack = new Player({
-  //  name: "Jack",
-  //  id: 233,
-  //  team: 0,
-  //  position: [6, 1],
-  //  material: PeopleMaterial
-  //});
+
+
+  window.Jack = new Player({
+    name: "Jack",
+    id: 233,
+    team: 0,
+    position: [6, 1],
+    material: PeopleMaterial
+  });
 
   map.addBlock(John);
-  //map.addBlock(Jack);
+  map.addBlock(Jack);
 
   PlayerList.push(John);
 

@@ -52,7 +52,7 @@ var init = function () {
     size: [mapSize[0], 2]
   });
 
-  var ladder = new Block({
+  window.ladder = new Block({
     position: [5, 5],
     material: brick,
     size: [5, 1]
@@ -85,21 +85,21 @@ var init = function () {
     name: "John",
     id: 2333,
     team: 0,
-    position: [1, 1],
+    position: [5, 1],
     material: PeopleMaterial
   });
-  //
-  //
-  //window.Jack = new Player({
-  //  name: "Jack",
-  //  id: 233,
-  //  team: 0,
-  //  position: [6, 1],
-  //  material: PeopleMaterial
-  //});
+
+
+  window.Jack = new Player({
+    name: "Jack",
+    id: 233,
+    team: 0,
+    position: [6, 1],
+    material: PeopleMaterial
+  });
 
   map.addBlock(John);
-  //map.addBlock(Jack);
+  map.addBlock(Jack);
 
   PlayerList.push(John);
 
