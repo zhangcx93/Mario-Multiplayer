@@ -1,5 +1,5 @@
 var Env = {
-  gravity: 50,
+  gravity: 30,
   maxSpeed: 17,
   drag: 0.5
 };

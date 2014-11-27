@@ -1,76 +1,109 @@
 //main start:
 
 var init = function () {
+  var brickImg = getBitmap("brick");
+  var tempCanvas = document.createElement('canvas'),
+    tempCtx = tempCanvas.getContext("2d");
+  tempCanvas.width = tempCanvas.height = unit;
+  tempCtx.imageSmoothingEnabled = false;
+  tempCtx.drawImage(brickImg, 0, 0, brickImg.width, brickImg.height, 0, 0, unit, unit);
+
   var brick = new Material({
-    bitmap: getBitmap("brick"),
-    solid: true
+    bitmap: tempCanvas,
+    repeat: true,
+    solid: true,
+    moveable: false
   });
 
   var hidden = new Material({
     bitmap: new Image(),
-    solid: true
+    solid: true,
+    moveable: false
   });
 
-  var floorPosition = function () {
-    var temp = [];
-    for (var i = 0; i < mapSize[0]; i++) {
-      for (var j = 7; j < mapSize[1]; j++) {
-        temp.push([i, j]);
-      }
-    }
-    return temp;
+  var edges = function () {
+    var edgeBricks = [];
+    edgeBricks.push(new Block({
+      position: [-1, -1],
+      material: hidden,
+      size: [1, mapSize[1] +1]
+    }));
+    edgeBricks.push(new Block({
+      position: [mapSize[0], -1],
+      material: hidden,
+      size: [1, mapSize[1] +1]
+    }));
+    edgeBricks.push(new Block({
+      position: [0, -1],
+      material: hidden,
+      size: [mapSize[0] - 1, 1]
+    }));
+    edgeBricks.push(new Block({
+      position: [0, mapSize[1]],
+      material: hidden,
+      size: [mapSize[0] - 1, 1]
+    }));
+    return edgeBricks;
   };
 
-  var ladderPosition = function () {
-    var temp = [];
-    for (var i = 2; i < 5; i++) {
-      temp.push([i, 6]);
-    }
-    for (i = 6; i < 9; i++) {
-      temp.push([i, 4]);
-    }
-    return temp
-  };
-
-  var edgePosition = function () {
-    var temp = [];
-    for (var i = -1; i < mapSize[0] + 1; i++) {
-      temp.push([i, -1]);
-      temp.push([i, mapSize[1]])
-    }
-    for (var j = 0; j < mapSize[1]; j++) {
-      temp.push([-1, j]);
-      temp.push([mapSize[0], j]);
-    }
-    return temp;
-  };
-
-  var floors = new Blocks({
-    position: floorPosition(),
-    material: brick
+  var floors = new Block({
+    position: [0, mapSize[1] - 2],
+    material: brick,
+    size: [mapSize[0], 2]
   });
 
-  var edge = new Blocks({
-    position: edgePosition(),
-    material: hidden
+  var ladder = new Block({
+    position: [5, 5],
+    material: brick,
+    size: [5, 1]
   });
 
-  var ladder = new Blocks({
-    position: ladderPosition(),
-    material: brick
+  var something = new Block({
+    position: [7, 1],
+    material: brick,
+    size: [1, 1]
   });
+
 
   map = new Map();
   map.addBlock(floors);
   map.addBlock(ladder);
-  map.addBlock(edge);
+  map.addBlock(something);
+
+  map.addBlocks(edges());
+
+  map.paintBlocks();
 
 
-  var initMap = function() {
-    map.paintBlock();
-  };
+  var PeopleMaterial = new Material({
+    bitmap: getBitmap('mario'),
+    solid: true,
+    moveable: true
+  });
 
-  initMap();
+  window.John = new Player({
+    name: "John",
+    id: 2333,
+    team: 0,
+    position: [1, 1],
+    material: PeopleMaterial
+  });
+  //
+  //
+  //window.Jack = new Player({
+  //  name: "Jack",
+  //  id: 233,
+  //  team: 0,
+  //  position: [6, 1],
+  //  material: PeopleMaterial
+  //});
+
+  map.addBlock(John);
+  //map.addBlock(Jack);
+
+  PlayerList.push(John);
+
+  bindKey();
 
   var timer, refreshFrames;
 

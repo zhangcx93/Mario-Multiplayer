@@ -12,14 +12,14 @@ var bindKey = function () {
 
   window.addEventListener('keydown', function (e) {
     if (e.keyCode == 39) {
-      //move right
+      //resetInnerF right
       //socket.emit('playerMove', {
       //  direction: "r",
       //  position: PlayerList[0].position,
       //  id: PlayerList[0].id,
       //  roomId: PlayerList[0].roomId
       //});
-      PlayerList[0].changeMoveStatus(1);
+      PlayerList[0].move(1);
       keyStatus.right = true;
     }
     if (e.keyCode == 37) {
@@ -29,7 +29,7 @@ var bindKey = function () {
       //  id: PlayerList[0].id,
       //  roomId: PlayerList[0].roomId
       //});
-      PlayerList[0].changeMoveStatus(-1);
+      PlayerList[0].move(-1);
       keyStatus.left = true;
 
     }
@@ -59,8 +59,7 @@ var bindKey = function () {
       //  id: PlayerList[0].id,
       //  roomId: PlayerList[0].roomId
       //});
-      PlayerList[0].stop();
-      PlayerList[0].changeMoveStatus(0);
+      PlayerList[0].move(0);
     }
   });
 };

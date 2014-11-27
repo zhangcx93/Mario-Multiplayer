@@ -74,6 +74,10 @@ Room.prototype = {
       }
     }
     return false;
+  },
+  destroy: function() {
+    console.log(this.name + ' destroyed');
+    roomList.splice(roomList.indexOf(this), 1);
   }
 };
 
@@ -112,6 +116,7 @@ io.on('connection', function (socket) {
   socket.on('heartBeat', function (player) {
     clearTimeout(heartBeat);
     heartBeat = setTimeout(function () {
+      //remove people if logged out
       var room = getRoomById(player.roomId);
 
       if (room) {
@@ -120,9 +125,12 @@ io.on('connection', function (socket) {
         if (nowPlayer) {
           room.removePlayer(player.id, socket);
         }
+
+        if(room.playerList.length == 0) {
+          room.destroy();
+        }
+
       }
-
-
     }, 5000);
     //5s timeout to disconnect a player;
   })
@@ -140,7 +148,8 @@ app.post('/createRoom', function (req, res) {
     name: name
   });
   res.json({
-    success: true
+    success: true,
+    room: newRoom
   })
 });
 

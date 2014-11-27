@@ -1,9 +1,5 @@
-var drawBlock = function (img, x, y) {
-  mapCtx.drawImage(img, 0, 0, img.width, img.height, x * unit, y * unit, unit, unit)
-};
-
-var drawPeople = function (ctx, img, x, y, w, h, name) {
-  if (Game.showName) {
+var drawBlock = function (ctx, img, x, y, w, h, name) {
+  if (Game.showName && name) {
     ctx.textAlign = "center";
     ctx.font = "20px Georgia";
     ctx.fillText(name, (x + w / 2) * unit, (y - 0.2) * unit);
@@ -29,7 +25,7 @@ var loadBitmap = function (callback) {
   var length = getObjectSize(bitmapsMap);
   var onload = function () {
     if (bitMapLoaded == length - 1) {
-      return callback();
+      callback();
     }
     bitMapLoaded++;
   };
@@ -40,6 +36,7 @@ var loadBitmap = function (callback) {
       bitmap[i].src = './bitmap/' + bitmapsMap[i];
     }
   }
+
 };
 
 var getBitmap = function (name) {

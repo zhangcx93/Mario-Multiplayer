@@ -47,6 +47,14 @@
     cursor: pointer;
   }
 
+  .frames {
+    color: black;
+    position: absolute;
+    right: 5px;
+    top: 5px;
+    z-index: 10;
+  }
+
 </style>
 <div id="wrapper" ng-controller="mainCtrl">
   <div id="menu" class="menu" ng-controller="menuCtrl" ng-show="onMenu">
@@ -85,8 +93,11 @@
     </div>
 
   </div>
-  <canvas id="map" ng-show="gameStart"></canvas>
-  <!--<canvas id="player"></canvas>-->
+  <div id="gameWrapper" ng-controller="gameCtrl" ng-show="gameStart">
+    <!--<span class="frames">{{ frames }}</span>-->
+    <canvas id="map"></canvas>
+    <!--<canvas id="player"></canvas>-->
+  </div>
 </div>
 
 </body>
