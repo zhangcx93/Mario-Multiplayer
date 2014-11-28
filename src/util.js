@@ -47,3 +47,12 @@ var getBitmap = function (name) {
     throw new Error("Can't find bitmap named: " + name);
   }
 };
+
+var getPlayerById = function (id) {
+  for (var i = 0, l = PlayerList.length; i < l; i++) {
+    if (PlayerList[i].id == id) {
+      return PlayerList[i]
+    }
+  }
+  return false;
+};

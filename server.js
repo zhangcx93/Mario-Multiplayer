@@ -35,7 +35,10 @@ Room.prototype = {
       if (that.nextTeam() == 1) {
         player.position = [9, 2];
       }
-      that.teamStatus[that.nextTeam()]++
+      that.teamStatus[that.nextTeam()]++;
+
+      player.position = [player.team == 0 ? 2 : 10, 5];
+
     }
 
     socket.join(that.id);
@@ -48,12 +51,14 @@ Room.prototype = {
       other: that.playerList,
       me: player
     });
+    console.log('getPlayer added', {
+      other: that.playerList,
+      me: player
+    });
 
     socket.broadcast.to(that.id).emit('newPlayer', player);
 
     that.playerList.push(player);
-
-    console.log('Player ' + player.id + " added");
   },
   removePlayer: function (id) {
     var that = this;
@@ -75,7 +80,7 @@ Room.prototype = {
     }
     return false;
   },
-  destroy: function() {
+  destroy: function () {
     console.log(this.name + ' destroyed');
     roomList.splice(roomList.indexOf(this), 1);
   }
@@ -106,9 +111,27 @@ io.on('connection', function (socket) {
 
   socket.on("playerMove", function (data) {
     var room = getRoomById(data.roomId);
-    var player = room.getPlayerById(data.id);
-    player.position = data.position;
-    socket.broadcast.to(room.id).emit('playerMove', data);
+    if(room) {
+      var player = room.getPlayerById(data.id);
+      player.position = data.position;
+      socket.broadcast.to(room.id).emit('playerMove', data);
+    }
+  });
+
+  socket.on("addForce", function(data) {
+    socket.broadcast.to(data.room).emit('addForce', data);
+  });
+
+  socket.on("addPushedForce", function(data) {
+    socket.broadcast.to(data.room).emit('addPushedForce', data);
+  });
+
+  socket.on("removePushedForce", function(data) {
+    socket.broadcast.to(data.room).emit('removePushedForce', data);
+  });
+
+  socket.on("destroyForce", function(data) {
+    socket.broadcast.to(data.room).emit('destroyForce', data);
   });
 
   var heartBeat;
@@ -126,7 +149,7 @@ io.on('connection', function (socket) {
           room.removePlayer(player.id, socket);
         }
 
-        if(room.playerList.length == 0) {
+        if (room.playerList.length == 0) {
           room.destroy();
         }
 

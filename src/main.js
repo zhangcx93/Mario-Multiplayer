@@ -75,35 +75,19 @@ var init = function () {
   map.paintBlocks();
 
 
-  var PeopleMaterial = new Material({
+  var RedPeopleMaterial = new Material({
+    name: "RedPeople",
     bitmap: getBitmap('mario'),
     solid: true,
     moveable: true
   });
 
-  window.John = new Player({
-    name: "John",
-    id: 2333,
-    team: 0,
-    position: [5, 1],
-    material: PeopleMaterial
+  var GreenPeopleMaterial = new Material({
+    name: "GreenPeople",
+    bitmap: getBitmap('mario-green'),
+    solid: true,
+    moveable: true
   });
-
-
-  window.Jack = new Player({
-    name: "Jack",
-    id: 233,
-    team: 0,
-    position: [6, 1],
-    material: PeopleMaterial
-  });
-
-  map.addBlock(John);
-  map.addBlock(Jack);
-
-  PlayerList.push(John);
-
-  bindKey();
 
   var timer, refreshFrames;
 

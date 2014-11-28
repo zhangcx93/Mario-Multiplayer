@@ -12,6 +12,8 @@ var Game = {
 
 var PlayerList = [];
 
+var MaterialList = {};
+
 
 var lastTimeStamp = 0, frames = 60;
 

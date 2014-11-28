@@ -4,8 +4,8 @@ angular
   .module('Mario', [])
   .controller('mainCtrl', function ($scope) {
     $scope.PlayerName = "John";
-    $scope.onMenu = false;
-    $scope.gameStart = true;
+    $scope.onMenu = true;
+    $scope.gameStart = false;
     $scope.roomName = "";
   })
   .controller('menuCtrl', function ($scope) {
@@ -51,21 +51,21 @@ angular
     }
   })
   .controller("gameCtrl", function($scope) {
-  //  $scope.frames = 0;
-  //  var timer, refreshFrames;
-  //
-  //  var updateFrame = function(timestamp) {
-  //    clearTimeout(timer);
-  //    if(!Game.leave) {
-  //      $scope.frames = frames = parseInt(1000 / (timestamp - lastTimeStamp));
-  //    }
-  //    lastTimeStamp = timestamp;
-  //    Game.leave = false;
-  //    timer = setTimeout(function() {
-  //      Game.leave = true;
-  //    }, parseInt(1000 / frames * 5));
-  //    refreshFrames = requestAnimationFrame(updateFrame);
-  //  };
-  //  refreshFrames = requestAnimationFrame(updateFrame);
+    //$scope.frames = 0;
+    //var timer, refreshFrames;
+    //
+    //var updateFrame = function(timestamp) {
+    //  clearTimeout(timer);
+    //  if(!Game.leave) {
+    //    $scope.frames = frames = parseInt(1000 / (timestamp - lastTimeStamp));
+    //  }
+    //  lastTimeStamp = timestamp;
+    //  Game.leave = false;
+    //  timer = setTimeout(function() {
+    //    Game.leave = true;
+    //  }, parseInt(1000 / frames * 5));
+    //  refreshFrames = requestAnimationFrame(updateFrame);
+    //};
+    //refreshFrames = requestAnimationFrame(updateFrame);
   })
 ;

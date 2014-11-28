@@ -1,19 +1,31 @@
 //class Material, define materials with bitmap, solid or not (or advanced feature)
 
 var Material = function (e) {
+  this.name = e.name;
   this.bitmap = e.bitmap;
   this.repeat = e.repeat || false;
 
+  MaterialList[e.name] = this;
+
 };
 
-var Force = function (e) {
-  this.pusher = e.pusher;
-  this.pushed = [];
-  this.value = e.value;
-  this.pusher.innerF.push(this);
+var Force = function (e, byOther) {
+  var self = this;
+  self.pusher = e.pusher;
+  self.pushed = [];
+  self.value = e.value;
+  self.pusher.innerF.push(self);
   if (e.pushed) {
-    this.pushed.push(e.pushed);
-    e.pushed.outterF.push(this);
+    self.pushed.push(e.pushed);
+    e.pushed.outterF.push(self);
+  }
+  self.byOther = byOther;
+  if(!byOther) {
+    socket.emit('addForce', {
+      room: PlayerList[0].roomId,
+      pusher: self.pusher.id,
+      value: e.value
+    })
   }
 
 };
@@ -23,11 +35,27 @@ Force.prototype.addPushed = function (pushed) {
     this.pushed.push(pushed);
     pushed.outterF.push(this);
   }
+  var self = this;
+  if(!self.byOther) {
+    socket.emit('addPushedForce', {
+      room: PlayerList[0].roomId,
+      pusher: self.pusher.id,
+      pushed: pushed.id
+    })
+  }
 };
 
 Force.prototype.deletePushed = function (pushed) {
   this.pushed.splice(this.pushed.indexOf(pushed), 1);
-  pushed.outterF.splice(pushed.outterF.indexOf(this), 1)
+  pushed.outterF.splice(pushed.outterF.indexOf(this), 1);
+  var self = this;
+  if(!self.byOther) {
+    socket.emit('removePushedForce', {
+      room: PlayerList[0].roomId,
+      pusher: self.pusher.id,
+      pushed: pushed.id
+    })
+  }
 };
 
 Force.prototype.destroy = function () {
@@ -39,13 +67,22 @@ Force.prototype.destroy = function () {
       this.pushed[i].outterF.splice(this.pushed[i].outterF.indexOf(this), 1);
     }
   }
+  var self = this;
+  if(!self.byOther) {
+    socket.emit('destroyForce', {
+      room: PlayerList[0].roomId,
+      id: PlayerList[0].id,
+      pusher: self.pusher.id
+    })
+  }
 };
 
 var Block = function (e) {
   this.innerF = [];
   this.outterF = [];
-  this.position = e.position;
-  this.size = e.size;
+  this.position = e.position || [0, 0];
+  this.size = e.size || [1, 1];
+  this.id = e.id || '' + this.position[0] + this.position[1] + this.size[0] + this.size[1];
   this.material = e.material;
   this.ctx = e.ctx || mapCtx;
   this.v = [0, 0];
@@ -81,10 +118,6 @@ Block.prototype = {
     this.draw();
   },
   getAllForce: function () {
-    //if (this.isPushingSolid()) {
-    //  return 0;
-    //}
-
     var max = 0, min = 0;
     for (var i = 0, l = this.outterF.length; i < l; i++) {
       if (this.outterF[i].value > max) {
@@ -213,6 +246,11 @@ Block.prototype = {
       //dont update
       if (pusher) {
         pusher.position[0] = self.position[0] + (pusher.v[0] > 0 ? (-pusher.size[0] - 0.00001) : self.size[0] + 0.00001);
+        socket.emit('playerMove', {
+          roomId: PlayerList[0].roomId,
+          id: pusher.id,
+          position: pusher.position
+        });
         pusher.redraw();
       }
       return false;
@@ -251,7 +289,10 @@ Block.prototype = {
 
         pushed.moving = true;
         pushed.update(self, pushForce);
-        pushed.checkUpdate();
+        if(!pushed.name) {
+          //update none player box;
+          pushed.checkUpdate();
+        }
       }
       else {
         self.pushed = pushed;
@@ -259,6 +300,11 @@ Block.prototype = {
         self.redraw();
         if (pusher) {
           pusher.position[0] = self.position[0] + (pusher.v[0] > 0 ? (-pusher.size[0] - 0.00001) : self.size[0] + 0.00001);
+          socket.emit('playerMove', {
+            roomId: PlayerList[0].roomId,
+            id: pusher.id,
+            position: pusher.position
+          });
           pusher.redraw();
         }
       }
@@ -269,6 +315,8 @@ Block.prototype = {
       }
       //do nothing;
     }
+
+    //vertical
 
     if (self.v[1] >= 0) {
       self.v[1] += Env.gravity / frames;
@@ -299,6 +347,12 @@ Block.prototype = {
         self.position[1] += self.v[1] / frames;
       }
     }
+
+    socket.emit('playerMove', {
+      roomId: self.roomId,
+      id: self.id,
+      position: self.position
+    });
 
     self.redraw();
 
@@ -331,7 +385,6 @@ Block.prototype = {
 var Map = function () {
   this.blocks = [];
   this.init = false;
-  //this.peoples = [];
 };
 
 Map.prototype = {
@@ -351,5 +404,15 @@ Map.prototype = {
       blocks[i].draw();
     }
     this.init = true;
+  },
+  getBlockById: function(id) {
+    var blocks = this.blocks;
+
+    for (var i = 0, l = blocks.length; i < l; i++) {
+      if(blocks[i].id == id) {
+        return blocks[i]
+      }
+    }
+    return false;
   }
 };

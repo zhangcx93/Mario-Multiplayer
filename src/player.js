@@ -2,9 +2,15 @@ var Player = function (e) {
   this.name = e.name;
   this.team = e.team;
   this.id = e.id;
+  this.roomId = e.roomId;
   this.speed = e.speed || 7;
   this.position = e.position;
-  this.material = e.material;
+  if(typeof e.material == 'string') {
+    this.material = MaterialList[e.material];
+  }
+  else {
+    this.material = e.material;
+  }
   this.playerCanvas = document.createElement('canvas');
   this.playerCanvas.id = "player_" + this.id + "_layer";
   this.ctx = this.playerCanvas.getContext('2d');
@@ -63,4 +69,11 @@ Player.prototype.jump = function () {
       self.checkUpdate();
     }
   }
+};
+
+Player.prototype.destroy = function() {
+  var self = this;
+  self.playerCanvas.parentNode.removeChild(self.playerCanvas);
+
+  PlayerList.splice(PlayerList.indexOf(this), 1);
 };

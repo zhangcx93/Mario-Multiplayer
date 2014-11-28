@@ -47,6 +47,8 @@ var Game = {
 
 var PlayerList = [];
 
+var MaterialList = {};
+
 
 var lastTimeStamp = 0, frames = 60;
 
@@ -112,22 +114,43 @@ var getBitmap = function (name) {
     throw new Error("Can't find bitmap named: " + name);
   }
 };
+
+var getPlayerById = function (id) {
+  for (var i = 0, l = PlayerList.length; i < l; i++) {
+    if (PlayerList[i].id == id) {
+      return PlayerList[i]
+    }
+  }
+  return false;
+};
 //class Material, define materials with bitmap, solid or not (or advanced feature)
 
 var Material = function (e) {
+  this.name = e.name;
   this.bitmap = e.bitmap;
   this.repeat = e.repeat || false;
 
+  MaterialList[e.name] = this;
+
 };
 
-var Force = function (e) {
-  this.pusher = e.pusher;
-  this.pushed = [];
-  this.value = e.value;
-  this.pusher.innerF.push(this);
+var Force = function (e, byOther) {
+  var self = this;
+  self.pusher = e.pusher;
+  self.pushed = [];
+  self.value = e.value;
+  self.pusher.innerF.push(self);
   if (e.pushed) {
-    this.pushed.push(e.pushed);
-    e.pushed.outterF.push(this);
+    self.pushed.push(e.pushed);
+    e.pushed.outterF.push(self);
+  }
+  self.byOther = byOther;
+  if(!byOther) {
+    socket.emit('addForce', {
+      room: PlayerList[0].roomId,
+      pusher: self.pusher.id,
+      value: e.value
+    })
   }
 
 };
@@ -137,11 +160,27 @@ Force.prototype.addPushed = function (pushed) {
     this.pushed.push(pushed);
     pushed.outterF.push(this);
   }
+  var self = this;
+  if(!self.byOther) {
+    socket.emit('addPushedForce', {
+      room: PlayerList[0].roomId,
+      pusher: self.pusher.id,
+      pushed: pushed.id
+    })
+  }
 };
 
 Force.prototype.deletePushed = function (pushed) {
   this.pushed.splice(this.pushed.indexOf(pushed), 1);
-  pushed.outterF.splice(pushed.outterF.indexOf(this), 1)
+  pushed.outterF.splice(pushed.outterF.indexOf(this), 1);
+  var self = this;
+  if(!self.byOther) {
+    socket.emit('removePushedForce', {
+      room: PlayerList[0].roomId,
+      pusher: self.pusher.id,
+      pushed: pushed.id
+    })
+  }
 };
 
 Force.prototype.destroy = function () {
@@ -153,13 +192,22 @@ Force.prototype.destroy = function () {
       this.pushed[i].outterF.splice(this.pushed[i].outterF.indexOf(this), 1);
     }
   }
+  var self = this;
+  if(!self.byOther) {
+    socket.emit('destroyForce', {
+      room: PlayerList[0].roomId,
+      id: PlayerList[0].id,
+      pusher: self.pusher.id
+    })
+  }
 };
 
 var Block = function (e) {
   this.innerF = [];
   this.outterF = [];
-  this.position = e.position;
-  this.size = e.size;
+  this.position = e.position || [0, 0];
+  this.size = e.size || [1, 1];
+  this.id = e.id || '' + this.position[0] + this.position[1] + this.size[0] + this.size[1];
   this.material = e.material;
   this.ctx = e.ctx || mapCtx;
   this.v = [0, 0];
@@ -195,10 +243,6 @@ Block.prototype = {
     this.draw();
   },
   getAllForce: function () {
-    //if (this.isPushingSolid()) {
-    //  return 0;
-    //}
-
     var max = 0, min = 0;
     for (var i = 0, l = this.outterF.length; i < l; i++) {
       if (this.outterF[i].value > max) {
@@ -327,6 +371,11 @@ Block.prototype = {
       //dont update
       if (pusher) {
         pusher.position[0] = self.position[0] + (pusher.v[0] > 0 ? (-pusher.size[0] - 0.00001) : self.size[0] + 0.00001);
+        socket.emit('playerMove', {
+          roomId: PlayerList[0].roomId,
+          id: pusher.id,
+          position: pusher.position
+        });
         pusher.redraw();
       }
       return false;
@@ -365,7 +414,10 @@ Block.prototype = {
 
         pushed.moving = true;
         pushed.update(self, pushForce);
-        pushed.checkUpdate();
+        if(!pushed.name) {
+          //update none player box;
+          pushed.checkUpdate();
+        }
       }
       else {
         self.pushed = pushed;
@@ -373,6 +425,11 @@ Block.prototype = {
         self.redraw();
         if (pusher) {
           pusher.position[0] = self.position[0] + (pusher.v[0] > 0 ? (-pusher.size[0] - 0.00001) : self.size[0] + 0.00001);
+          socket.emit('playerMove', {
+            roomId: PlayerList[0].roomId,
+            id: pusher.id,
+            position: pusher.position
+          });
           pusher.redraw();
         }
       }
@@ -383,6 +440,8 @@ Block.prototype = {
       }
       //do nothing;
     }
+
+    //vertical
 
     if (self.v[1] >= 0) {
       self.v[1] += Env.gravity / frames;
@@ -413,6 +472,12 @@ Block.prototype = {
         self.position[1] += self.v[1] / frames;
       }
     }
+
+    socket.emit('playerMove', {
+      roomId: self.roomId,
+      id: self.id,
+      position: self.position
+    });
 
     self.redraw();
 
@@ -445,7 +510,6 @@ Block.prototype = {
 var Map = function () {
   this.blocks = [];
   this.init = false;
-  //this.peoples = [];
 };
 
 Map.prototype = {
@@ -465,6 +529,16 @@ Map.prototype = {
       blocks[i].draw();
     }
     this.init = true;
+  },
+  getBlockById: function(id) {
+    var blocks = this.blocks;
+
+    for (var i = 0, l = blocks.length; i < l; i++) {
+      if(blocks[i].id == id) {
+        return blocks[i]
+      }
+    }
+    return false;
   }
 };
 
@@ -472,9 +546,15 @@ var Player = function (e) {
   this.name = e.name;
   this.team = e.team;
   this.id = e.id;
+  this.roomId = e.roomId;
   this.speed = e.speed || 7;
   this.position = e.position;
-  this.material = e.material;
+  if(typeof e.material == 'string') {
+    this.material = MaterialList[e.material];
+  }
+  else {
+    this.material = e.material;
+  }
   this.playerCanvas = document.createElement('canvas');
   this.playerCanvas.id = "player_" + this.id + "_layer";
   this.ctx = this.playerCanvas.getContext('2d');
@@ -533,6 +613,13 @@ Player.prototype.jump = function () {
       self.checkUpdate();
     }
   }
+};
+
+Player.prototype.destroy = function() {
+  var self = this;
+  self.playerCanvas.parentNode.removeChild(self.playerCanvas);
+
+  PlayerList.splice(PlayerList.indexOf(this), 1);
 };
 var bindKey = function () {
 
@@ -599,101 +686,119 @@ var bindKey = function () {
     }
   });
 };
-//var connect = function (map, name, room) {
-//  socket = io.connect("/");
-//
-//  var lastHeartBeat;
-//
-//  var heartBeat = setInterval(function () {
-//    socket.emit("heartBeat", {
-//      id: PlayerList[0].id,
-//      roomId: PlayerList[0].roomId
-//    });
-//    lastHeartBeat = (new Date()).getTime();
-//
-//  }, 1000);
-//
-//  socket.on("connect", function () {
-//    var tempLayer = new Player({
-//      name: name,
-//      map: map,
-//      roomId: room
-//    });
-//
-//    tempLayer.request();
-//  });
-//
-//  socket.on("getPlayer", function (data) {
-//    console.log("Player Get: ", data);
-//    data.me.map = map;
-//    PlayerList[0] = new Player(data.me);
-//    map.addPeople(PlayerList[0]);
-//    PlayerList[0].initDom().render();
-//    var tempPlayer;
-//    for (var i = 0; i < data.other.length; i++) {
-//      tempPlayer = new Player(data.other[i]);
-//      tempPlayer.map = map;
-//      PlayerList.push(tempPlayer);
-//      map.addPeople(tempPlayer);
-//      tempPlayer.initDom().render();
-//    }
-//    bindKey();
-//  });
-//
-//  socket.on("newPlayer", function (data) {
-//    console.log("other new player added: ", data);
-//    data.map = map;
-//    var tempPlayer = new Player(data);
-//    PlayerList.push(tempPlayer);
-//    map.addPeople(tempPlayer);
-//    tempPlayer.initDom().render();
-//  });
-//
-//  socket.on('removePlayer', function (id) {
-//    console.log(id + ' Player removed');
-//    for (var i = 0, l = PlayerList.length; i < l; i++) {
-//      if (PlayerList[i].id == id) {
-//        PlayerList[i].destroy();
-//        PlayerList.splice(i, 1);
-//        return;
-//      }
-//    }
-//  });
-//
-//  socket.on("playerMove", function (data) {
-//    console.log("Player Move received: ", data);
-//    for (var player in PlayerList) {
-//      if (PlayerList.hasOwnProperty(player) && PlayerList[player].id == data.id) {
-//        var tempPlayer = PlayerList[player];
-//        tempPlayer.position = data.position;
-//        tempPlayer.update();
-//        //if (data.direction == "l") {
-//        //  tempPlayer.changeMoveStatus(-1);
-//        //}
-//        //else if (data.direction == "r") {
-//        //  tempPlayer.changeMoveStatus(1);
-//        //}
-//        //else if (data.direction == "s") {
-//        //  tempPlayer.stop();
-//        //  tempPlayer.changeMoveStatus(0);
-//        //}
-//        //else if (data.direction == "r") {
-//        //  tempPlayer.changeMoveStatus(1);
-//        //}
-//        //else if (data.direction == 'u') {
-//        //  tempPlayer.jump();
-//        //}
-//      }
-//    }
-//  });
-//
-//
-//
-//
-//  socket.on("resHeartBeat", function () {
-//    console.log('heart Beat Recieved');
-//  });
-//};
+var connect = function (map, name, room) {
+  socket = io.connect("/");
+
+  socket.on("connect", function () {
+    console.log('connect', room);
+    socket.emit('addPlayer', {
+      roomId: room,
+      name: name,
+      team: -1 //not defined now
+    });
+  });
+
+  socket.on("getPlayer", function (data) {
+    if (data.me.team == 0) {
+      data.me.material = MaterialList.RedPeople;
+    }
+    else {
+      data.me.material = MaterialList.GreenPeople;
+    }
+    PlayerList[0] = new Player(data.me);
+    map.addBlock(PlayerList[0]);
+    var tempPlayer;
+    for (var i = 0; i < data.other.length; i++) {
+      if (data.other[i].team == 0) {
+        data.other[i].material = MaterialList.RedPeople;
+      }
+      else {
+        data.other[i].material = MaterialList.GreenPeople;
+      }
+      tempPlayer = new Player(data.other[i]);
+      PlayerList.push(tempPlayer);
+      map.addBlock(tempPlayer);
+    }
+
+    bindKey();
+
+    var lastHeartBeat;
+
+    var heartBeat = setInterval(function () {
+      socket.emit("heartBeat", {
+        id: PlayerList[0].id,
+        roomId: PlayerList[0].roomId
+      });
+      lastHeartBeat = (new Date()).getTime();
+
+    }, 1000);
+  });
+
+  socket.on("newPlayer", function (data) {
+    console.log("other new player added: ", data);
+    if (data.team == 0) {
+      data.material = MaterialList.RedPeople;
+    }
+    else {
+      data.material = MaterialList.GreenPeople;
+    }
+    var tempPlayer = new Player(data);
+    PlayerList.push(tempPlayer);
+    map.addBlock(tempPlayer);
+  });
+
+  socket.on('removePlayer', function (id) {
+    console.log(id + ' Player removed');
+    for (var i = 0, l = PlayerList.length; i < l; i++) {
+      if (PlayerList[i].id == id) {
+        PlayerList[i].destroy();
+        PlayerList.splice(i, 1);
+        return;
+      }
+    }
+  });
+
+  socket.on("playerMove", function (data) {
+    //console.log("Player Move received: ", data);
+    var player = getPlayerById(data.id);
+    player.position = data.position;
+    if (player.id == PlayerList[0].id && !player.moving && !player.isOnGround()) {
+      player.moving = true;
+      player.checkUpdate();
+    }
+    player.redraw();
+  });
+
+  socket.on("addForce", function (data) {
+    var player = getPlayerById(data.pusher);
+    new Force({
+      pusher: player,
+      value: data.value
+    }, true)
+  });
+
+  socket.on("addPushedForce", function (data) {
+    var player = getPlayerById(data.pusher);
+    var pushed = map.getBlockById(data.pushed);
+    player.innerF[0].addPushed(pushed);
+  });
+
+  socket.on("removePushedForce", function (data) {
+    var player = getPlayerById(data.pusher);
+    var pushed = map.getBlockById(data.pushed);
+    player.innerF[0].deletePushed(pushed);
+  });
+
+  socket.on("destroyForce", function (data) {
+    var player = getPlayerById(data.pusher);
+    player.innerF[0].destroy();
+  });
+
+
+  socket.on("resHeartBeat", function () {
+    console.log('heart Beat Recieved');
+  });
+};
 
 //main start:
 
@@ -772,35 +877,19 @@ var init = function () {
   map.paintBlocks();
 
 
-  var PeopleMaterial = new Material({
+  var RedPeopleMaterial = new Material({
+    name: "RedPeople",
     bitmap: getBitmap('mario'),
     solid: true,
     moveable: true
   });
 
-  window.John = new Player({
-    name: "John",
-    id: 2333,
-    team: 0,
-    position: [5, 1],
-    material: PeopleMaterial
+  var GreenPeopleMaterial = new Material({
+    name: "GreenPeople",
+    bitmap: getBitmap('mario-green'),
+    solid: true,
+    moveable: true
   });
-
-
-  window.Jack = new Player({
-    name: "Jack",
-    id: 233,
-    team: 0,
-    position: [6, 1],
-    material: PeopleMaterial
-  });
-
-  map.addBlock(John);
-  map.addBlock(Jack);
-
-  PlayerList.push(John);
-
-  bindKey();
 
   var timer, refreshFrames;
 
@@ -828,8 +917,8 @@ angular
   .module('Mario', [])
   .controller('mainCtrl', function ($scope) {
     $scope.PlayerName = "John";
-    $scope.onMenu = false;
-    $scope.gameStart = true;
+    $scope.onMenu = true;
+    $scope.gameStart = false;
     $scope.roomName = "";
   })
   .controller('menuCtrl', function ($scope) {
@@ -875,21 +964,21 @@ angular
     }
   })
   .controller("gameCtrl", function($scope) {
-  //  $scope.frames = 0;
-  //  var timer, refreshFrames;
-  //
-  //  var updateFrame = function(timestamp) {
-  //    clearTimeout(timer);
-  //    if(!Game.leave) {
-  //      $scope.frames = frames = parseInt(1000 / (timestamp - lastTimeStamp));
-  //    }
-  //    lastTimeStamp = timestamp;
-  //    Game.leave = false;
-  //    timer = setTimeout(function() {
-  //      Game.leave = true;
-  //    }, parseInt(1000 / frames * 5));
-  //    refreshFrames = requestAnimationFrame(updateFrame);
-  //  };
-  //  refreshFrames = requestAnimationFrame(updateFrame);
+    //$scope.frames = 0;
+    //var timer, refreshFrames;
+    //
+    //var updateFrame = function(timestamp) {
+    //  clearTimeout(timer);
+    //  if(!Game.leave) {
+    //    $scope.frames = frames = parseInt(1000 / (timestamp - lastTimeStamp));
+    //  }
+    //  lastTimeStamp = timestamp;
+    //  Game.leave = false;
+    //  timer = setTimeout(function() {
+    //    Game.leave = true;
+    //  }, parseInt(1000 / frames * 5));
+    //  refreshFrames = requestAnimationFrame(updateFrame);
+    //};
+    //refreshFrames = requestAnimationFrame(updateFrame);
   })
 ;
