@@ -1,4 +1,4 @@
-/*! Mario-Multiplayer - v0.0.1 - 2014-11-28
+/*! Mario-Multiplayer - v0.0.1 - 2014-11-29
 * http://geetest.com/
 * Copyright (c) 2014 zhangcx93; Licensed  */
 var mapCanvas = document.getElementById('map'),
@@ -352,14 +352,14 @@ Block.prototype = {
     }
     return false;
   },
-  isPushingSolid: function () {
+  isPushingSolid: function (pusher) {
     //if i'm pushing someone pushing solid stuff, or pushing solid stuff;
     if(!this.innerF[0]) {
       return false;
     }
     var pushed = this.innerF[0].pushed;
     for(var i = 0, l = pushed.length; i < l ;i++) {
-      if (!pushed[i].moveable || pushed[i].isPushingSolid()) {
+      if (pushed == pusher && (!pushed[i].moveable || pushed[i].isPushingSolid(this))) {
         return true;
       }
     }
@@ -391,9 +391,11 @@ Block.prototype = {
       }
     }
 
-    if(self.isPushingSolid()) {
+    if(self.v[0] != 0 && self.isPushingSolid()) {
       self.v[0] = 0;
     }
+
+    var dontSend = false;
 
     //on x axis:
 
@@ -412,8 +414,15 @@ Block.prototype = {
           pushForce = force;
         }
 
-        pushed.moving = true;
-        pushed.update(self, pushForce);
+        if(pushed != pusher) {
+          console.log(pushed.name);
+          pushed.moving = true;
+          pushed.update(self, pushForce);
+          if(pushed.moveable) {
+            dontSend = true;
+          }
+        }
+
         if(!pushed.name) {
           //update none player box;
           pushed.checkUpdate();
@@ -473,13 +482,16 @@ Block.prototype = {
       }
     }
 
-    socket.emit('playerMove', {
-      roomId: self.roomId,
-      id: self.id,
-      position: self.position
-    });
+    if(!dontSend) {
+      socket.emit('playerMove', {
+        roomId: self.roomId,
+        id: self.id,
+        position: self.position
+      });
+      self.redraw();
+    }
 
-    self.redraw();
+
 
     if (self.v[0] == 0 && self.v[1] == 0) {
       self.moving = false;
