@@ -20,7 +20,7 @@ var Force = function (e, byOther) {
     e.pushed.outterF.push(self);
   }
   self.byOther = byOther;
-  if(!byOther) {
+  if (!byOther) {
     socket.emit('addForce', {
       room: PlayerList[0].roomId,
       pusher: self.pusher.id,
@@ -36,7 +36,7 @@ Force.prototype.addPushed = function (pushed) {
     pushed.outterF.push(this);
   }
   var self = this;
-  if(!self.byOther) {
+  if (!self.byOther) {
     socket.emit('addPushedForce', {
       room: PlayerList[0].roomId,
       pusher: self.pusher.id,
@@ -49,7 +49,7 @@ Force.prototype.deletePushed = function (pushed) {
   this.pushed.splice(this.pushed.indexOf(pushed), 1);
   pushed.outterF.splice(pushed.outterF.indexOf(this), 1);
   var self = this;
-  if(!self.byOther) {
+  if (!self.byOther) {
     socket.emit('removePushedForce', {
       room: PlayerList[0].roomId,
       pusher: self.pusher.id,
@@ -68,7 +68,7 @@ Force.prototype.destroy = function () {
     }
   }
   var self = this;
-  if(!self.byOther) {
+  if (!self.byOther) {
     socket.emit('destroyForce', {
       room: PlayerList[0].roomId,
       id: PlayerList[0].id,
@@ -96,13 +96,17 @@ Block.prototype = {
     var y = this.position[1];
     var w = this.size[0];
     var h = this.size[1];
-    var img = this.material.bitmap;
+    var img = this.material && this.material.bitmap;
     var name = this.name;
     var ctx = this.ctx;
     if (Game.showName && name) {
       ctx.textAlign = "center";
       ctx.font = "20px Georgia";
       ctx.fillText(name, (x + w / 2) * unit, (y - 0.2) * unit);
+    }
+
+    if (x < 0 || y < 0 || !img.width || !img.height || x >= mapSize[0] || y >= mapSize[1]) {
+      return;
     }
 
     if (this.material.repeat) {
@@ -203,6 +207,9 @@ Block.prototype = {
           (this.position[0] + this.size[0] <= obj.position[0] + obj.size[0] && this.position[0] + this.size[0] > obj.position[0])
           )
         ) {
+          if (obj.name && obj.team != PlayerList[0].team) {
+            this.isOnEnemy(obj);
+          }
           return obj;
         }
       }
@@ -229,11 +236,11 @@ Block.prototype = {
   },
   isPushingSolid: function (pusher) {
     //if i'm pushing someone pushing solid stuff, or pushing solid stuff;
-    if(!this.innerF[0]) {
+    if (!this.innerF[0]) {
       return false;
     }
     var pushed = this.innerF[0].pushed;
-    for(var i = 0, l = pushed.length; i < l ;i++) {
+    for (var i = 0, l = pushed.length; i < l; i++) {
       if (pushed == pusher && (!pushed[i].moveable || pushed[i].isPushingSolid(this))) {
         return true;
       }
@@ -260,13 +267,13 @@ Block.prototype = {
 
     var pushed = self.checkCollision();
 
-    if(!pushed) {
+    if (!pushed) {
       if (self.innerF[0] && self.innerF[0].pushed[0]) {
         self.innerF[0].deletePushed(self.innerF[0].pushed[0]);
       }
     }
 
-    if(self.v[0] != 0 && self.isPushingSolid()) {
+    if (self.v[0] != 0 && self.isPushingSolid()) {
       self.v[0] = 0;
     }
 
@@ -289,18 +296,12 @@ Block.prototype = {
           pushForce = force;
         }
 
-        if(pushed != pusher) {
-          console.log(pushed.name);
+        if (pushed != pusher) {
           pushed.moving = true;
           pushed.update(self, pushForce);
-          if(pushed.moveable) {
+          if (pushed.moveable) {
             dontSend = true;
           }
-        }
-
-        if(!pushed.name) {
-          //update none player box;
-          pushed.checkUpdate();
         }
       }
       else {
@@ -357,7 +358,7 @@ Block.prototype = {
       }
     }
 
-    if(!dontSend) {
+    if (!dontSend) {
       socket.emit('playerMove', {
         roomId: self.roomId,
         id: self.id,
@@ -366,8 +367,6 @@ Block.prototype = {
       self.redraw();
     }
 
-
-
     if (self.v[0] == 0 && self.v[1] == 0) {
       self.moving = false;
     }
@@ -375,18 +374,15 @@ Block.prototype = {
   },
   checkUpdate: function () {
     var self = this;
+    console.log('start check update');
 
     var animate = function () {
       cancelAnimationFrame(self.animateFrame);
-      self.animateFrame = requestAnimationFrame(function () {
+      var update = function () {
         self.update();
-        if (self.moving) {
-          animate();
-        }
-        else {
-          //console.log(self.name, 'stop');
-        }
-      })
+        self.animateFrame = requestAnimationFrame(update);
+      };
+      self.animateFrame = requestAnimationFrame(update)
     };
     animate();
 
@@ -417,11 +413,11 @@ Map.prototype = {
     }
     this.init = true;
   },
-  getBlockById: function(id) {
+  getBlockById: function (id) {
     var blocks = this.blocks;
 
     for (var i = 0, l = blocks.length; i < l; i++) {
-      if(blocks[i].id == id) {
+      if (blocks[i].id == id) {
         return blocks[i]
       }
     }

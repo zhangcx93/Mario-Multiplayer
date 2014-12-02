@@ -5,7 +5,7 @@ var Player = function (e) {
   this.roomId = e.roomId;
   this.speed = e.speed || 7;
   this.position = e.position;
-  if(typeof e.material == 'string') {
+  if (typeof e.material == 'string') {
     this.material = MaterialList[e.material];
   }
   else {
@@ -17,6 +17,10 @@ var Player = function (e) {
   this.playerCanvas.width = mapPixel[0];
   this.playerCanvas.height = mapPixel[1];
   this.jumpSpeed = e.jumpSpeed || 17;
+  this.ctx.mozImageSmoothingEnabled = false;
+  this.ctx.webkitImageSmoothingEnabled = false;
+  this.ctx.msImageSmoothingEnabled = false;
+  this.ctx.imageSmoothingEnabled = false;
   this.ctx.imageSmoothingEnabled = false;
   this.v = [0, 0];
   this.innerF = [];
@@ -24,9 +28,9 @@ var Player = function (e) {
   gameWrapperDom.appendChild(this.playerCanvas);
 
   this.moving = true;
-  this.draw();
+  this.blood = 3;
 
-  this.checkUpdate();
+  this.draw();
 };
 
 Player.prototype = new Block({
@@ -54,26 +58,35 @@ Player.prototype.move = function (direction) {
     //make stop
     self.innerF[0].destroy();
   }
-  if (!this.moving) {
-    this.moving = true;
-    this.checkUpdate();
-  }
 };
 
-Player.prototype.jump = function () {
+Player.prototype.jump = function (force) {
   var self = this;
-  if (self.isOnGround()) {
-    self.v[1] = -self.jumpSpeed;
-    if (!self.moving) {
-      self.moving = true;
-      self.checkUpdate();
-    }
+  if (force || self.isOnGround()) {
+    requestAnimationFrame(function () {
+      self.v[1] = -self.jumpSpeed;
+    });
+
   }
 };
 
-Player.prototype.destroy = function() {
+Player.prototype.destroy = function () {
   var self = this;
   self.playerCanvas.parentNode.removeChild(self.playerCanvas);
 
   PlayerList.splice(PlayerList.indexOf(this), 1);
+};
+
+Player.prototype.isOnEnemy = function(enemy) {
+  this.jump(true);
+  var self = this;
+  socket.emit('hit', {
+    room: self.roomId,
+    hit: enemy.id,
+    by: self.id
+  })
+};
+
+Player.prototype.die = function() {
+  alert(this.name + ' is died');
 };

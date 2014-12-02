@@ -10,7 +10,7 @@ var gameWrapperDom = document.getElementById('gameWrapper');
 
 //take the map as a 16*9 boxes, make up a whole map, each box size w*w
 
-var mapSize = [16, 9];
+var mapSize = [22, 14];
 var worldPadding = 20;
 
 var unit = Math.round(Math.min(
@@ -27,6 +27,8 @@ wrapperDom.style.width = gameWrapperDom.style.width  = mapPixel[0] + 'px';
 wrapperDom.style.height = gameWrapperDom.style.width = mapPixel[1] + 'px';
 
 mapCtx.fillStyle = "white";
+mapCtx.mozImageSmoothingEnabled = false;
+mapCtx.webkitImageSmoothingEnabled = false;
+mapCtx.msImageSmoothingEnabled = false;
 mapCtx.imageSmoothingEnabled = false;
-
 mapCtx.fillRect(0, 0, mapPixel[0], mapPixel[1]);

@@ -33,13 +33,15 @@ Room.prototype = {
     if (player.team == -1) {
       player.team = that.nextTeam();
       if (that.nextTeam() == 1) {
-        player.position = [9, 2];
+        player.position = [20, 2];
       }
       that.teamStatus[that.nextTeam()]++;
 
       player.position = [player.team == 0 ? 2 : 10, 5];
 
     }
+
+    player.socket = socket.id;
 
     socket.join(that.id);
 
@@ -134,29 +136,41 @@ io.on('connection', function (socket) {
     socket.broadcast.to(data.room).emit('destroyForce', data);
   });
 
-  var heartBeat;
+  socket.on("hit", function(data) {
+    var room = getRoomById(data.room);
+    if(room) {
+      io.sockets.in(data.room).emit('hit', data);
+    }
+  });
 
+  //var heartBeat;
+  //
   socket.on('heartBeat', function (player) {
-    clearTimeout(heartBeat);
-    heartBeat = setTimeout(function () {
-      //remove people if logged out
-      var room = getRoomById(player.roomId);
+    //console.log('get heart', new Date());
+  //  clearTimeout(heartBeat);
+  //  heartBeat = setTimeout(function () {
+  //    //remove people if logged out
+  //    var room = getRoomById(player.roomId);
+  //
+  //    if (room) {
+  //      var nowPlayer = room.getPlayerById(player.id);
+  //
+  //      if (nowPlayer) {
+  //        room.removePlayer(player.id, socket);
+  //      }
+  //
+  //      if (room.playerList.length == 0) {
+  //        room.destroy();
+  //      }
+  //
+  //    }
+  //  }, 5000);
+  //  //5s timeout to disconnect a player;
+  });
 
-      if (room) {
-        var nowPlayer = room.getPlayerById(player.id);
-
-        if (nowPlayer) {
-          room.removePlayer(player.id, socket);
-        }
-
-        if (room.playerList.length == 0) {
-          room.destroy();
-        }
-
-      }
-    }, 5000);
-    //5s timeout to disconnect a player;
-  })
+  socket.on("disconnect", function(s) {
+    console.log("Disconnected from global handler", s);
+  });
 
 
 });

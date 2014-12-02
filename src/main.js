@@ -5,6 +5,9 @@ var init = function () {
   var tempCanvas = document.createElement('canvas'),
     tempCtx = tempCanvas.getContext("2d");
   tempCanvas.width = tempCanvas.height = unit;
+  tempCtx.mozImageSmoothingEnabled = false;
+  tempCtx.webkitImageSmoothingEnabled = false;
+  tempCtx.msImageSmoothingEnabled = false;
   tempCtx.imageSmoothingEnabled = false;
   tempCtx.drawImage(brickImg, 0, 0, brickImg.width, brickImg.height, 0, 0, unit, unit);
 
@@ -52,23 +55,30 @@ var init = function () {
     size: [mapSize[0], 2]
   });
 
-  window.ladder = new Block({
-    position: [5, 5],
+  var ladder = new Block({
+    position: [2, mapSize[1] - 5],
     material: brick,
     size: [5, 1]
   });
 
-  var something = new Block({
-    position: [7, 1],
+  var ladder1 = new Block({
+    position: [mapSize[0] - 2 - 5, mapSize[1] - 5],
     material: brick,
-    size: [1, 1]
+    size: [5, 1]
+  });
+
+  var ceil = new Block({
+    position: [8, mapSize[1] - 5- 4],
+    material: brick,
+    size: [6, 1]
   });
 
 
   map = new Map();
   map.addBlock(floors);
   map.addBlock(ladder);
-  map.addBlock(something);
+  map.addBlock(ladder1);
+  map.addBlock(ceil);
 
   map.addBlocks(edges());
 
@@ -95,6 +105,9 @@ var init = function () {
     clearTimeout(timer);
     if(!Game.leave) {
       frames = parseInt(1000 / (timestamp - lastTimeStamp));
+      if (frames > 60) {
+        frames = 60;
+      }
     }
     lastTimeStamp = timestamp;
     Game.leave = false;

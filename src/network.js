@@ -2,7 +2,6 @@ var connect = function (map, name, room) {
   socket = io.connect("/");
 
   socket.on("connect", function () {
-    console.log('connect', room);
     socket.emit('addPlayer', {
       roomId: room,
       name: name,
@@ -19,6 +18,7 @@ var connect = function (map, name, room) {
     }
     PlayerList[0] = new Player(data.me);
     map.addBlock(PlayerList[0]);
+    PlayerList[0].checkUpdate();
     var tempPlayer;
     for (var i = 0; i < data.other.length; i++) {
       if (data.other[i].team == 0) {
@@ -31,6 +31,8 @@ var connect = function (map, name, room) {
       PlayerList.push(tempPlayer);
       map.addBlock(tempPlayer);
     }
+
+    ui.draw();
 
     bindKey();
 
@@ -47,7 +49,6 @@ var connect = function (map, name, room) {
   });
 
   socket.on("newPlayer", function (data) {
-    console.log("other new player added: ", data);
     if (data.team == 0) {
       data.material = MaterialList.RedPeople;
     }
@@ -57,27 +58,23 @@ var connect = function (map, name, room) {
     var tempPlayer = new Player(data);
     PlayerList.push(tempPlayer);
     map.addBlock(tempPlayer);
+    ui.draw();
   });
 
   socket.on('removePlayer', function (id) {
-    console.log(id + ' Player removed');
     for (var i = 0, l = PlayerList.length; i < l; i++) {
       if (PlayerList[i].id == id) {
         PlayerList[i].destroy();
         PlayerList.splice(i, 1);
+        ui.draw();
         return;
       }
     }
   });
 
   socket.on("playerMove", function (data) {
-    //console.log("Player Move received: ", data);
     var player = getPlayerById(data.id);
     player.position = data.position;
-    if (player.id == PlayerList[0].id && !player.moving && !player.isOnGround()) {
-      player.moving = true;
-      player.checkUpdate();
-    }
     player.redraw();
   });
 
@@ -110,4 +107,19 @@ var connect = function (map, name, room) {
   socket.on("resHeartBeat", function () {
     console.log('heart Beat Recieved');
   });
+
+  socket.on('hit', function(data) {
+    if(PlayerList[0].id == data.hit) {
+      //i'm hit!
+      PlayerList[0].blood--;
+      if(PlayerList[0].blood <= 0) {
+        PlayerList[0].die();
+      }
+    }
+    else {
+      var hitted = getPlayerById(data.hit);
+      hitted.blood--;
+    }
+    ui.draw();
+  })
 };

@@ -12,7 +12,7 @@ module.exports = function (grunt) {
         options: {
           banner: '<%= banner %>'
         },
-        src: ['src/element.js', 'src/globals.js', 'src/util.js', 'src/map.js', 'src/player.js', 'src/keyBinding.js', 'src/network.js', 'src/main.js', 'src/angular.js'],
+        src: ['src/element.js', 'src/globals.js', 'src/util.js', 'src/ui.js', 'src/map.js', 'src/player.js', 'src/keyBinding.js', 'src/network.js', 'src/main.js', 'src/angular.js'],
         dest: 'lib.js'
       }
     },

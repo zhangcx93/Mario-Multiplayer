@@ -1,4 +1,4 @@
-/*! Mario-Multiplayer - v0.0.1 - 2014-11-29
+/*! Mario-Multiplayer - v0.0.1 - 2014-12-02
 * http://geetest.com/
 * Copyright (c) 2014 zhangcx93; Licensed  */
 var mapCanvas = document.getElementById('map'),
@@ -13,7 +13,7 @@ var gameWrapperDom = document.getElementById('gameWrapper');
 
 //take the map as a 16*9 boxes, make up a whole map, each box size w*w
 
-var mapSize = [16, 9];
+var mapSize = [22, 14];
 var worldPadding = 20;
 
 var unit = Math.round(Math.min(
@@ -30,8 +30,10 @@ wrapperDom.style.width = gameWrapperDom.style.width  = mapPixel[0] + 'px';
 wrapperDom.style.height = gameWrapperDom.style.width = mapPixel[1] + 'px';
 
 mapCtx.fillStyle = "white";
+mapCtx.mozImageSmoothingEnabled = false;
+mapCtx.webkitImageSmoothingEnabled = false;
+mapCtx.msImageSmoothingEnabled = false;
 mapCtx.imageSmoothingEnabled = false;
-
 mapCtx.fillRect(0, 0, mapPixel[0], mapPixel[1]);
 var Env = {
   gravity: 40,
@@ -52,19 +54,21 @@ var MaterialList = {};
 
 var lastTimeStamp = 0, frames = 60;
 
-
 var bitmapsMap = {
   'brick': 'brick.png',
   'mario': 'mario.png',
   'mario-green': 'mario-green.png'
 };
 
-
 var bitmap = {};
+
 
 var socket;
 
 var map;
+
+var ui;
+
 var drawBlock = function (ctx, img, x, y, w, h, name) {
   if (Game.showName && name) {
     ctx.textAlign = "center";
@@ -123,6 +127,34 @@ var getPlayerById = function (id) {
   }
   return false;
 };
+var UI = function () {
+  this.canvas = document.createElement('canvas');
+  this.canvas.width = mapPixel[0];
+  this.canvas.height = mapPixel[1];
+  gameWrapperDom.appendChild(this.canvas);
+  this.ctx = this.canvas.getContext('2d');
+  this.ctx.font = "20px Georgia";
+};
+
+UI.prototype = {
+  draw: function () {
+    console.log('draw');
+    this.ctx.clearRect(0, 0, mapPixel[0], mapPixel[1]);
+    var p = [1, 1];
+    var x = [0, mapPixel[0] - 100];
+    for (var i = 0; i < PlayerList.length; i++) {
+      var team = PlayerList[i].team;
+      this.ctx.fillText(PlayerList[i].name + ': ' + PlayerList[i].blood, x[team], p[team] * unit);
+      p[team] += 0.5;
+    }
+  },
+  destroy: function() {
+    var canvas = this.canvas;
+    canvas.parentNode.removeChild(canvas);
+  }
+};
+
+ui = new UI();
 //class Material, define materials with bitmap, solid or not (or advanced feature)
 
 var Material = function (e) {
@@ -145,7 +177,7 @@ var Force = function (e, byOther) {
     e.pushed.outterF.push(self);
   }
   self.byOther = byOther;
-  if(!byOther) {
+  if (!byOther) {
     socket.emit('addForce', {
       room: PlayerList[0].roomId,
       pusher: self.pusher.id,
@@ -161,7 +193,7 @@ Force.prototype.addPushed = function (pushed) {
     pushed.outterF.push(this);
   }
   var self = this;
-  if(!self.byOther) {
+  if (!self.byOther) {
     socket.emit('addPushedForce', {
       room: PlayerList[0].roomId,
       pusher: self.pusher.id,
@@ -174,7 +206,7 @@ Force.prototype.deletePushed = function (pushed) {
   this.pushed.splice(this.pushed.indexOf(pushed), 1);
   pushed.outterF.splice(pushed.outterF.indexOf(this), 1);
   var self = this;
-  if(!self.byOther) {
+  if (!self.byOther) {
     socket.emit('removePushedForce', {
       room: PlayerList[0].roomId,
       pusher: self.pusher.id,
@@ -193,7 +225,7 @@ Force.prototype.destroy = function () {
     }
   }
   var self = this;
-  if(!self.byOther) {
+  if (!self.byOther) {
     socket.emit('destroyForce', {
       room: PlayerList[0].roomId,
       id: PlayerList[0].id,
@@ -221,13 +253,17 @@ Block.prototype = {
     var y = this.position[1];
     var w = this.size[0];
     var h = this.size[1];
-    var img = this.material.bitmap;
+    var img = this.material && this.material.bitmap;
     var name = this.name;
     var ctx = this.ctx;
     if (Game.showName && name) {
       ctx.textAlign = "center";
       ctx.font = "20px Georgia";
       ctx.fillText(name, (x + w / 2) * unit, (y - 0.2) * unit);
+    }
+
+    if (x < 0 || y < 0 || !img.width || !img.height || x >= mapSize[0] || y >= mapSize[1]) {
+      return;
     }
 
     if (this.material.repeat) {
@@ -328,6 +364,9 @@ Block.prototype = {
           (this.position[0] + this.size[0] <= obj.position[0] + obj.size[0] && this.position[0] + this.size[0] > obj.position[0])
           )
         ) {
+          if (obj.name && obj.team != PlayerList[0].team) {
+            this.isOnEnemy(obj);
+          }
           return obj;
         }
       }
@@ -354,11 +393,11 @@ Block.prototype = {
   },
   isPushingSolid: function (pusher) {
     //if i'm pushing someone pushing solid stuff, or pushing solid stuff;
-    if(!this.innerF[0]) {
+    if (!this.innerF[0]) {
       return false;
     }
     var pushed = this.innerF[0].pushed;
-    for(var i = 0, l = pushed.length; i < l ;i++) {
+    for (var i = 0, l = pushed.length; i < l; i++) {
       if (pushed == pusher && (!pushed[i].moveable || pushed[i].isPushingSolid(this))) {
         return true;
       }
@@ -385,13 +424,13 @@ Block.prototype = {
 
     var pushed = self.checkCollision();
 
-    if(!pushed) {
+    if (!pushed) {
       if (self.innerF[0] && self.innerF[0].pushed[0]) {
         self.innerF[0].deletePushed(self.innerF[0].pushed[0]);
       }
     }
 
-    if(self.v[0] != 0 && self.isPushingSolid()) {
+    if (self.v[0] != 0 && self.isPushingSolid()) {
       self.v[0] = 0;
     }
 
@@ -414,18 +453,12 @@ Block.prototype = {
           pushForce = force;
         }
 
-        if(pushed != pusher) {
-          console.log(pushed.name);
+        if (pushed != pusher) {
           pushed.moving = true;
           pushed.update(self, pushForce);
-          if(pushed.moveable) {
+          if (pushed.moveable) {
             dontSend = true;
           }
-        }
-
-        if(!pushed.name) {
-          //update none player box;
-          pushed.checkUpdate();
         }
       }
       else {
@@ -482,7 +515,7 @@ Block.prototype = {
       }
     }
 
-    if(!dontSend) {
+    if (!dontSend) {
       socket.emit('playerMove', {
         roomId: self.roomId,
         id: self.id,
@@ -491,8 +524,6 @@ Block.prototype = {
       self.redraw();
     }
 
-
-
     if (self.v[0] == 0 && self.v[1] == 0) {
       self.moving = false;
     }
@@ -500,18 +531,15 @@ Block.prototype = {
   },
   checkUpdate: function () {
     var self = this;
+    console.log('start check update');
 
     var animate = function () {
       cancelAnimationFrame(self.animateFrame);
-      self.animateFrame = requestAnimationFrame(function () {
+      var update = function () {
         self.update();
-        if (self.moving) {
-          animate();
-        }
-        else {
-          //console.log(self.name, 'stop');
-        }
-      })
+        self.animateFrame = requestAnimationFrame(update);
+      };
+      self.animateFrame = requestAnimationFrame(update)
     };
     animate();
 
@@ -542,11 +570,11 @@ Map.prototype = {
     }
     this.init = true;
   },
-  getBlockById: function(id) {
+  getBlockById: function (id) {
     var blocks = this.blocks;
 
     for (var i = 0, l = blocks.length; i < l; i++) {
-      if(blocks[i].id == id) {
+      if (blocks[i].id == id) {
         return blocks[i]
       }
     }
@@ -561,7 +589,7 @@ var Player = function (e) {
   this.roomId = e.roomId;
   this.speed = e.speed || 7;
   this.position = e.position;
-  if(typeof e.material == 'string') {
+  if (typeof e.material == 'string') {
     this.material = MaterialList[e.material];
   }
   else {
@@ -573,6 +601,10 @@ var Player = function (e) {
   this.playerCanvas.width = mapPixel[0];
   this.playerCanvas.height = mapPixel[1];
   this.jumpSpeed = e.jumpSpeed || 17;
+  this.ctx.mozImageSmoothingEnabled = false;
+  this.ctx.webkitImageSmoothingEnabled = false;
+  this.ctx.msImageSmoothingEnabled = false;
+  this.ctx.imageSmoothingEnabled = false;
   this.ctx.imageSmoothingEnabled = false;
   this.v = [0, 0];
   this.innerF = [];
@@ -580,9 +612,9 @@ var Player = function (e) {
   gameWrapperDom.appendChild(this.playerCanvas);
 
   this.moving = true;
-  this.draw();
+  this.blood = 3;
 
-  this.checkUpdate();
+  this.draw();
 };
 
 Player.prototype = new Block({
@@ -610,28 +642,37 @@ Player.prototype.move = function (direction) {
     //make stop
     self.innerF[0].destroy();
   }
-  if (!this.moving) {
-    this.moving = true;
-    this.checkUpdate();
-  }
 };
 
-Player.prototype.jump = function () {
+Player.prototype.jump = function (force) {
   var self = this;
-  if (self.isOnGround()) {
-    self.v[1] = -self.jumpSpeed;
-    if (!self.moving) {
-      self.moving = true;
-      self.checkUpdate();
-    }
+  if (force || self.isOnGround()) {
+    requestAnimationFrame(function () {
+      self.v[1] = -self.jumpSpeed;
+    });
+
   }
 };
 
-Player.prototype.destroy = function() {
+Player.prototype.destroy = function () {
   var self = this;
   self.playerCanvas.parentNode.removeChild(self.playerCanvas);
 
   PlayerList.splice(PlayerList.indexOf(this), 1);
+};
+
+Player.prototype.isOnEnemy = function(enemy) {
+  this.jump(true);
+  var self = this;
+  socket.emit('hit', {
+    room: self.roomId,
+    hit: enemy.id,
+    by: self.id
+  })
+};
+
+Player.prototype.die = function() {
+  alert(this.name + ' is died');
 };
 var bindKey = function () {
 
@@ -702,7 +743,6 @@ var connect = function (map, name, room) {
   socket = io.connect("/");
 
   socket.on("connect", function () {
-    console.log('connect', room);
     socket.emit('addPlayer', {
       roomId: room,
       name: name,
@@ -719,6 +759,7 @@ var connect = function (map, name, room) {
     }
     PlayerList[0] = new Player(data.me);
     map.addBlock(PlayerList[0]);
+    PlayerList[0].checkUpdate();
     var tempPlayer;
     for (var i = 0; i < data.other.length; i++) {
       if (data.other[i].team == 0) {
@@ -731,6 +772,8 @@ var connect = function (map, name, room) {
       PlayerList.push(tempPlayer);
       map.addBlock(tempPlayer);
     }
+
+    ui.draw();
 
     bindKey();
 
@@ -747,7 +790,6 @@ var connect = function (map, name, room) {
   });
 
   socket.on("newPlayer", function (data) {
-    console.log("other new player added: ", data);
     if (data.team == 0) {
       data.material = MaterialList.RedPeople;
     }
@@ -757,27 +799,23 @@ var connect = function (map, name, room) {
     var tempPlayer = new Player(data);
     PlayerList.push(tempPlayer);
     map.addBlock(tempPlayer);
+    ui.draw();
   });
 
   socket.on('removePlayer', function (id) {
-    console.log(id + ' Player removed');
     for (var i = 0, l = PlayerList.length; i < l; i++) {
       if (PlayerList[i].id == id) {
         PlayerList[i].destroy();
         PlayerList.splice(i, 1);
+        ui.draw();
         return;
       }
     }
   });
 
   socket.on("playerMove", function (data) {
-    //console.log("Player Move received: ", data);
     var player = getPlayerById(data.id);
     player.position = data.position;
-    if (player.id == PlayerList[0].id && !player.moving && !player.isOnGround()) {
-      player.moving = true;
-      player.checkUpdate();
-    }
     player.redraw();
   });
 
@@ -810,6 +848,21 @@ var connect = function (map, name, room) {
   socket.on("resHeartBeat", function () {
     console.log('heart Beat Recieved');
   });
+
+  socket.on('hit', function(data) {
+    if(PlayerList[0].id == data.hit) {
+      //i'm hit!
+      PlayerList[0].blood--;
+      if(PlayerList[0].blood <= 0) {
+        PlayerList[0].die();
+      }
+    }
+    else {
+      var hitted = getPlayerById(data.hit);
+      hitted.blood--;
+    }
+    ui.draw();
+  })
 };
 
 //main start:
@@ -819,6 +872,9 @@ var init = function () {
   var tempCanvas = document.createElement('canvas'),
     tempCtx = tempCanvas.getContext("2d");
   tempCanvas.width = tempCanvas.height = unit;
+  tempCtx.mozImageSmoothingEnabled = false;
+  tempCtx.webkitImageSmoothingEnabled = false;
+  tempCtx.msImageSmoothingEnabled = false;
   tempCtx.imageSmoothingEnabled = false;
   tempCtx.drawImage(brickImg, 0, 0, brickImg.width, brickImg.height, 0, 0, unit, unit);
 
@@ -866,23 +922,30 @@ var init = function () {
     size: [mapSize[0], 2]
   });
 
-  window.ladder = new Block({
-    position: [5, 5],
+  var ladder = new Block({
+    position: [2, mapSize[1] - 5],
     material: brick,
     size: [5, 1]
   });
 
-  var something = new Block({
-    position: [7, 1],
+  var ladder1 = new Block({
+    position: [mapSize[0] - 2 - 5, mapSize[1] - 5],
     material: brick,
-    size: [1, 1]
+    size: [5, 1]
+  });
+
+  var ceil = new Block({
+    position: [8, mapSize[1] - 5- 4],
+    material: brick,
+    size: [6, 1]
   });
 
 
   map = new Map();
   map.addBlock(floors);
   map.addBlock(ladder);
-  map.addBlock(something);
+  map.addBlock(ladder1);
+  map.addBlock(ceil);
 
   map.addBlocks(edges());
 
@@ -909,6 +972,9 @@ var init = function () {
     clearTimeout(timer);
     if(!Game.leave) {
       frames = parseInt(1000 / (timestamp - lastTimeStamp));
+      if (frames > 60) {
+        frames = 60;
+      }
     }
     lastTimeStamp = timestamp;
     Game.leave = false;
